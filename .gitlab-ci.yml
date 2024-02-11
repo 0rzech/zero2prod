@@ -1,0 +1,52 @@
+image: "rust:latest"
+
+variables:
+  CARGO_HOME: ${CI_PROJECT_DIR}/.cargo
+
+default:
+  cache: &global_cache
+    key: cache-${CI_COMMIT_REF_SLUG}
+    paths:
+      - .cargo
+      - target
+    policy: pull-push
+  before_script:
+    - apt-get update && apt-get install -y clang lld
+    - rustc --version
+    - cargo --version
+
+stages:
+  - test
+
+test-code:
+  stage: test
+  script:
+    - cargo test
+    - cargo install cargo-tarpaulin
+    - cargo tarpaulin --target-dir target/tarpaulin --skip-clean --ignore-tests
+  cache:
+    <<: *global_cache
+
+lint-code:
+  stage: test
+  script:
+    - rustup component add clippy
+    - cargo clippy -- -D warnings
+  cache:
+    <<: *global_cache
+
+format-code:
+  stage: test
+  script:
+    - rustup component add rustfmt
+    - cargo fmt -- --check
+  cache:
+    <<: *global_cache
+
+audit-code:
+  stage: test
+  script:
+    - cargo install cargo-audit
+    - cargo audit
+  cache:
+    <<: *global_cache
