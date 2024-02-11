@@ -1,10 +1,8 @@
-use axum::{extract::Path, response::Html, routing::get, Router};
+use axum::{http::StatusCode, routing::get, Router};
 
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
-    let app = Router::new()
-        .route("/", get(greet))
-        .route("/:name", get(greet));
+    let app = Router::new().route("/health_check", get(health_check));
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:8000").await?;
 
@@ -12,11 +10,6 @@ async fn main() -> Result<(), std::io::Error> {
     axum::serve(listener, app).await
 }
 
-async fn greet(name: Option<Path<String>>) -> Html<String> {
-    let name = match name {
-        Some(Path(name)) => name,
-        None => "World".to_string(),
-    };
-
-    Html(format!("Hello, {}!", name))
+async fn health_check() -> StatusCode {
+    StatusCode::OK
 }
