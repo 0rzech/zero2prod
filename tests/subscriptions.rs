@@ -22,7 +22,7 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
     let saved = sqlx::query!("SELECT name, email FROM subscriptions")
         .fetch_one(&app.db_pool)
         .await
-        .expect("Failed to fetch saved subscription.");
+        .expect("Failed to fetch saved subscription");
     assert_eq!(saved.name, "Imię Nazwisko");
     assert_eq!(saved.email, "imię.nazwisko@example.com");
 }
@@ -59,7 +59,7 @@ async fn subscribe_returns_a_400_when_data_is_missing() {
         let saved = sqlx::query!("SELECT name, email FROM subscriptions")
             .fetch_optional(&app.db_pool)
             .await
-            .expect("Failed to fetch unsaved subscription.");
+            .expect("Failed to fetch unsaved subscription");
         assert!(saved.is_none());
     }
 }
