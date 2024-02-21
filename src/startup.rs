@@ -1,6 +1,7 @@
 use crate::{
+    request_id::RequestUuid,
     routes::{health_check, subscriptions},
-    telemetry::{request_span, RequestUuid},
+    telemetry::request_span,
 };
 use axum::Router;
 use sqlx::PgPool;
