@@ -1,0 +1,10 @@
+.dockerignore
+.env
+.git*
+.idea
+.vscode
+Containerfile
+migrations
+scripts
+target
+tests
