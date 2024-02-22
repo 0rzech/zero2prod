@@ -13,7 +13,7 @@ async fn main() -> Result<(), std::io::Error> {
     init_subscriber(subscriber);
 
     let config = get_configuration().expect("Failed to read configuration");
-    let address = format!("{}:{}", config.application_host, config.application_port);
+    let address = format!("{}:{}", config.application.host, config.application.port);
 
     let listener = TcpListener::bind(address)
         .await
