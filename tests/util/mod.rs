@@ -1,5 +1,4 @@
 use once_cell::sync::Lazy;
-use secrecy::ExposeSecret;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::net::SocketAddr;
 use uuid::Uuid;
@@ -54,16 +53,15 @@ pub fn url(addr: SocketAddr, endpoint: &str) -> String {
 }
 
 async fn configure_database(configuration: &DatabaseSettings) -> PgPool {
-    let mut conn =
-        PgConnection::connect(configuration.connection_string_without_db().expose_secret())
-            .await
-            .expect("Failed to connect to Postgres");
+    let mut conn = PgConnection::connect_with(&configuration.without_db())
+        .await
+        .expect("Failed to connect to Postgres");
 
     conn.execute(format!(r#"CREATE DATABASE "{}";"#, configuration.database_name).as_str())
         .await
         .expect("Failed to create database");
 
-    let pool = PgPool::connect(&configuration.connection_string().expose_secret())
+    let pool = PgPool::connect_with(configuration.with_db())
         .await
         .expect("Failed to connect to Postgres");
 

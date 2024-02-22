@@ -1,2 +1,4 @@
 application:
   host: localhost
+database:
+  require_ssl: false

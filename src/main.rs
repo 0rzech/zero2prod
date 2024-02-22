@@ -1,4 +1,3 @@
-use secrecy::ExposeSecret;
 use sqlx::PgPool;
 use tokio::net::TcpListener;
 use zero2prod::{
@@ -19,8 +18,7 @@ async fn main() -> Result<(), std::io::Error> {
         .await
         .expect("Failed to open listener");
 
-    let pool = PgPool::connect_lazy(config.database.connection_string().expose_secret())
-        .expect("Failed to connect to Postgres");
+    let pool = PgPool::connect_lazy_with(config.database.with_db());
 
     run(listener, pool).await
 }
