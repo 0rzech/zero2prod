@@ -1,4 +1,5 @@
 use once_cell::sync::Lazy;
+use reqwest::{Client, Response};
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::net::SocketAddr;
 use uuid::Uuid;
@@ -20,33 +21,56 @@ static TRACING: Lazy<()> = Lazy::new(|| {
     }
 });
 
+static FAILED_TO_EXECUTE_REQUEST: &'static str = "Failed to execute request";
+
 pub struct TestApp {
     pub address: SocketAddr,
     pub db_pool: PgPool,
+    client: Client,
 }
 
-pub async fn spawn_app() -> TestApp {
-    Lazy::force(&TRACING);
+impl TestApp {
+    pub async fn spawn() -> Self {
+        Lazy::force(&TRACING);
 
-    let mut config = get_configuration().expect("Failed to read configuration");
-    config.database.database_name = Uuid::new_v4().to_string();
-    config.application.port = 0;
+        let mut config = get_configuration().expect("Failed to read configuration");
+        config.database.database_name = Uuid::new_v4().to_string();
+        config.application.port = 0;
 
-    let db_pool = configure_database(&config.database).await;
-    let app = Application::build(config).await;
+        let db_pool = configure_database(&config.database).await;
+        let app = Application::build(config).await;
+        let address = app.local_addr();
 
-    let test_app = TestApp {
-        address: app.local_addr(),
-        db_pool,
-    };
+        tokio::spawn(app.run_until_stopped());
 
-    tokio::spawn(app.run_until_stopped());
+        Self {
+            address,
+            db_pool,
+            client: Client::new(),
+        }
+    }
 
-    test_app
-}
+    pub async fn get_health_check(&self) -> Response {
+        self.client
+            .get(self.url("/health_check"))
+            .send()
+            .await
+            .expect(FAILED_TO_EXECUTE_REQUEST)
+    }
 
-pub fn url(addr: SocketAddr, endpoint: &str) -> String {
-    format!("http://{}/{}", addr, endpoint)
+    pub async fn post_subscriptions(&self, body: String) -> Response {
+        self.client
+            .post(self.url("/subscriptions"))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(body)
+            .send()
+            .await
+            .expect(FAILED_TO_EXECUTE_REQUEST)
+    }
+
+    fn url(&self, endpoint: &str) -> String {
+        format!("http://{}{endpoint}", self.address)
+    }
 }
 
 async fn configure_database(configuration: &DatabaseSettings) -> PgPool {

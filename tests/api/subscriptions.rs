@@ -1,21 +1,13 @@
-use crate::helpers::{spawn_app, url};
+use crate::helpers::TestApp;
 
 #[tokio::test]
 async fn subscribe_returns_a_200_for_valid_form_data() {
     // given
-    let client = reqwest::Client::new();
+    let app = TestApp::spawn().await;
     let body = "name=Imi%C4%99%20Nazwisko&email=imie.nazwisko%40example.com";
-    let app = spawn_app().await;
-    let url = url(app.address, "subscriptions");
 
     // when
-    let response = client
-        .post(url)
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(body)
-        .send()
-        .await
-        .expect("Failed to execute request");
+    let response = app.post_subscriptions(body.into()).await;
 
     // then
     assert_eq!(response.status(), 200);
@@ -30,9 +22,7 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
 #[tokio::test]
 async fn subscribe_returns_a_400_when_fields_are_present_but_empty() {
     // given
-    let client = reqwest::Client::new();
-    let app = spawn_app().await;
-    let url = url(app.address, "subscriptions");
+    let app = TestApp::spawn().await;
     let test_cases = vec![
         ("name=Imi%C4%99%20Nazwisko&email=", "empty email"),
         (
@@ -45,13 +35,7 @@ async fn subscribe_returns_a_400_when_fields_are_present_but_empty() {
 
     for (body, description) in test_cases {
         // when
-        let response = client
-            .post(&url)
-            .header("Content-Type", "application/x-www-form-urlencoded")
-            .body(body)
-            .send()
-            .await
-            .expect("Failed to execute request");
+        let response = app.post_subscriptions(body.into()).await;
 
         // then
         assert_eq!(
@@ -66,9 +50,7 @@ async fn subscribe_returns_a_400_when_fields_are_present_but_empty() {
 #[tokio::test]
 async fn subscribe_returns_a_400_when_data_is_missing() {
     // given
-    let client = reqwest::Client::new();
-    let app = spawn_app().await;
-    let url = url(app.address, "subscriptions");
+    let app = TestApp::spawn().await;
     let test_cases = vec![
         ("name=Imi%C4%99%20Nazwisko", "missing the email"),
         ("email=imie.nazwisko%40example.com", "missing the name"),
@@ -77,13 +59,7 @@ async fn subscribe_returns_a_400_when_data_is_missing() {
 
     for (body, message) in test_cases {
         // when
-        let response = client
-            .post(&url)
-            .header("Content-Type", "application/x-www-form-urlencoded")
-            .body(body)
-            .send()
-            .await
-            .expect("Failed to execute request");
+        let response = app.post_subscriptions(body.into()).await;
 
         // then
         assert_eq!(
