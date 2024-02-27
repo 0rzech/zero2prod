@@ -1,7 +1,7 @@
+use crate::app_state::AppState;
 use axum::{http::StatusCode, routing::get, Router};
-use sqlx::PgPool;
 
-pub fn router() -> Router<PgPool> {
+pub fn router() -> Router<AppState> {
     Router::new().route("/health_check", get(health_check))
 }
 

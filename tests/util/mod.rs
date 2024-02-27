@@ -4,6 +4,7 @@ use std::net::SocketAddr;
 use uuid::Uuid;
 use zero2prod::{
     configuration::{get_configuration, DatabaseSettings},
+    email_client::EmailClient,
     startup::run,
     telemetry::{get_subscriber, init_subscriber},
 };
@@ -41,8 +42,20 @@ pub async fn spawn_app() -> TestApp {
     };
 
     let pool = app.db_pool.clone();
+    let sender_email = config.email_client.sender().expect("Invalid sender email");
+    let timeout = config.email_client.timeout();
+
+    let email_client = EmailClient::new(
+        config.email_client.base_url,
+        sender_email,
+        config.email_client.authorization_token,
+        timeout,
+    );
+
     tokio::spawn(async move {
-        run(listener, pool).await.expect("Failed to run server");
+        run(listener, pool, email_client)
+            .await
+            .expect("Failed to run server");
     });
 
     app

@@ -1,4 +1,6 @@
 use crate::{
+    app_state::AppState,
+    email_client::EmailClient,
     request_id::RequestUuid,
     routes::{health_check, subscriptions},
     telemetry::request_span,
@@ -13,11 +15,20 @@ use tower_http::{
 };
 use tracing::Level;
 
-pub async fn run(listener: TcpListener, db_pool: PgPool) -> Result<(), std::io::Error> {
+pub async fn run(
+    listener: TcpListener,
+    db_pool: PgPool,
+    email_client: EmailClient,
+) -> Result<(), std::io::Error> {
+    let app_state = AppState {
+        db_pool,
+        email_client,
+    };
+
     let app = Router::new()
         .merge(health_check::router())
         .merge(subscriptions::router())
-        .with_state(db_pool)
+        .with_state(app_state)
         .layer(
             ServiceBuilder::new()
                 .set_x_request_id(RequestUuid)
