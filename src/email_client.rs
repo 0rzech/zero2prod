@@ -73,9 +73,8 @@ struct SendEmailRequest<'a> {
 #[cfg(test)]
 mod tests {
     use claims::{assert_err, assert_ok};
-    use matcher::SendEmailBodyMatcher;
+    use helpers::{content, email, email_client, subject, SendEmailBodyMatcher};
     use std::time::Duration;
-    use util::*;
     use wiremock::{
         matchers::{any, header, header_exists, method, path},
         Mock, MockServer, ResponseTemplate,
@@ -148,8 +147,18 @@ mod tests {
         assert_err!(response);
     }
 
-    mod matcher {
+    mod helpers {
+        use crate::{domain::SubscriberEmail, email_client::EmailClient};
+        use fake::{
+            faker::{
+                internet::en::SafeEmail,
+                lorem::en::{Paragraph, Sentence},
+            },
+            Fake, Faker,
+        };
+        use secrecy::Secret;
         use serde_json::{from_slice, Value};
+        use std::time::Duration;
         use wiremock::{Match, Request};
 
         pub struct SendEmailBodyMatcher;
@@ -167,19 +176,6 @@ mod tests {
                 }
             }
         }
-    }
-
-    mod util {
-        use crate::{domain::SubscriberEmail, email_client::EmailClient};
-        use fake::{
-            faker::{
-                internet::en::SafeEmail,
-                lorem::en::{Paragraph, Sentence},
-            },
-            Fake, Faker,
-        };
-        use secrecy::Secret;
-        use std::time::Duration;
 
         pub fn email_client(base_url: String) -> EmailClient {
             EmailClient::new(

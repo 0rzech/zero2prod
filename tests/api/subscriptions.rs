@@ -1,12 +1,12 @@
-mod util;
+use crate::helpers::{spawn_app, url};
 
 #[tokio::test]
 async fn subscribe_returns_a_200_for_valid_form_data() {
     // given
     let client = reqwest::Client::new();
     let body = "name=Imi%C4%99%20Nazwisko&email=imie.nazwisko%40example.com";
-    let app = util::spawn_app().await;
-    let url = util::url(app.address, "subscriptions");
+    let app = spawn_app().await;
+    let url = url(app.address, "subscriptions");
 
     // when
     let response = client
@@ -31,8 +31,8 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
 async fn subscribe_returns_a_400_when_fields_are_present_but_empty() {
     // given
     let client = reqwest::Client::new();
-    let app = util::spawn_app().await;
-    let url = util::url(app.address, "subscriptions");
+    let app = spawn_app().await;
+    let url = url(app.address, "subscriptions");
     let test_cases = vec![
         ("name=Imi%C4%99%20Nazwisko&email=", "empty email"),
         (
@@ -67,8 +67,8 @@ async fn subscribe_returns_a_400_when_fields_are_present_but_empty() {
 async fn subscribe_returns_a_400_when_data_is_missing() {
     // given
     let client = reqwest::Client::new();
-    let app = util::spawn_app().await;
-    let url = util::url(app.address, "subscriptions");
+    let app = spawn_app().await;
+    let url = url(app.address, "subscriptions");
     let test_cases = vec![
         ("name=Imi%C4%99%20Nazwisko", "missing the email"),
         ("email=imie.nazwisko%40example.com", "missing the name"),

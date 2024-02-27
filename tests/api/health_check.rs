@@ -1,11 +1,11 @@
-mod util;
+use crate::helpers::{spawn_app, url};
 
 #[tokio::test]
 async fn health_check_works() {
     // given
     let client = reqwest::Client::new();
-    let app = util::spawn_app().await;
-    let url = util::url(app.address, "health_check");
+    let app = spawn_app().await;
+    let url = url(app.address, "health_check");
 
     // when
     let response = client

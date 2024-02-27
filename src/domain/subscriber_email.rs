@@ -24,8 +24,8 @@ impl AsRef<str> for SubscriberEmail {
 mod tests {
     use super::SubscriberEmail;
     use claims::{assert_err, assert_ok};
+    use helpers::valid_emails;
     use proptest::prelude::proptest;
-    use valid_emails::valid_emails;
 
     proptest! {
         #[test]
@@ -74,7 +74,7 @@ mod tests {
         assert_err!(result);
     }
 
-    mod valid_emails {
+    mod helpers {
         use fake::{
             faker::internet::en::{FreeEmail, SafeEmail},
             Fake,

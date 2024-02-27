@@ -34,10 +34,9 @@ impl AsRef<str> for SubscriberName {
 
 #[cfg(test)]
 mod tests {
+    use super::FORBIDDEN_CHARS;
     use crate::domain::SubscriberName;
     use claims::{assert_err, assert_ok};
-
-    use super::FORBIDDEN_CHARS;
 
     #[test]
     fn a_valid_name_is_parsed_successfully() {
