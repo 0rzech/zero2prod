@@ -1,12 +1,14 @@
 use crate::{
     app_state::AppState,
+    configuration::{DatabaseSettings, Settings},
     email_client::EmailClient,
     request_id::RequestUuid,
     routes::{health_check, subscriptions},
     telemetry::request_span,
 };
-use axum::Router;
-use sqlx::PgPool;
+use axum::{serve::Serve, Router};
+use sqlx::{postgres::PgPoolOptions, PgPool};
+use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tower::ServiceBuilder;
 use tower_http::{
@@ -15,11 +17,62 @@ use tower_http::{
 };
 use tracing::Level;
 
-pub async fn run(
+pub struct Application {
+    local_addr: SocketAddr,
+    server: Serve<Router, Router>,
+}
+
+impl Application {
+    pub async fn build(config: Settings) -> Application {
+        let address = format!("{}:{}", config.application.host, config.application.port);
+
+        let listener = TcpListener::bind(address)
+            .await
+            .expect("Failed to open listener");
+
+        let db_pool = get_connection_pool(&config.database);
+
+        let sender_email = config
+            .email_client
+            .sender()
+            .expect("Invalid sender email address");
+        let timeout = config.email_client.timeout();
+
+        let email_client = EmailClient::new(
+            config.email_client.base_url,
+            sender_email,
+            config.email_client.authorization_token,
+            timeout,
+        );
+
+        let local_addr = listener
+            .local_addr()
+            .expect("Failed to get local address from the listener");
+
+        let server = run(listener, db_pool, email_client).await;
+
+        Self { local_addr, server }
+    }
+
+    pub fn local_addr(&self) -> SocketAddr {
+        self.local_addr
+    }
+
+    pub async fn run_until_stopped(self) -> Result<(), std::io::Error> {
+        tracing::info!("Listening on {}", self.local_addr);
+        self.server.await
+    }
+}
+
+pub fn get_connection_pool(config: &DatabaseSettings) -> PgPool {
+    PgPoolOptions::new().connect_lazy_with(config.with_db())
+}
+
+async fn run(
     listener: TcpListener,
     db_pool: PgPool,
     email_client: EmailClient,
-) -> Result<(), std::io::Error> {
+) -> Serve<Router, Router> {
     let app_state = AppState {
         db_pool,
         email_client,
@@ -41,6 +94,5 @@ pub async fn run(
                 .propagate_x_request_id(),
         );
 
-    tracing::info!("Listening on {}", listener.local_addr()?);
-    axum::serve(listener, app).await
+    axum::serve(listener, app)
 }

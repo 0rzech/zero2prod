@@ -4,8 +4,7 @@ use std::net::SocketAddr;
 use uuid::Uuid;
 use zero2prod::{
     configuration::{get_configuration, DatabaseSettings},
-    email_client::EmailClient,
-    startup::run,
+    startup::{get_connection_pool, Application},
     telemetry::{get_subscriber, init_subscriber},
 };
 
@@ -31,34 +30,19 @@ pub async fn spawn_app() -> TestApp {
 
     let mut config = get_configuration().expect("Failed to read configuration");
     config.database.database_name = Uuid::new_v4().to_string();
+    config.application.port = 0;
 
-    let listener = tokio::net::TcpListener::bind("localhost:0")
-        .await
-        .expect("Failed to bind address");
+    let db_pool = configure_database(&config.database).await;
+    let app = Application::build(config).await;
 
-    let app = TestApp {
-        address: listener.local_addr().expect("Failed to get local address"),
-        db_pool: configure_database(&config.database).await,
+    let test_app = TestApp {
+        address: app.local_addr(),
+        db_pool,
     };
 
-    let pool = app.db_pool.clone();
-    let sender_email = config.email_client.sender().expect("Invalid sender email");
-    let timeout = config.email_client.timeout();
+    tokio::spawn(app.run_until_stopped());
 
-    let email_client = EmailClient::new(
-        config.email_client.base_url,
-        sender_email,
-        config.email_client.authorization_token,
-        timeout,
-    );
-
-    tokio::spawn(async move {
-        run(listener, pool, email_client)
-            .await
-            .expect("Failed to run server");
-    });
-
-    app
+    test_app
 }
 
 pub fn url(addr: SocketAddr, endpoint: &str) -> String {
@@ -74,9 +58,7 @@ async fn configure_database(configuration: &DatabaseSettings) -> PgPool {
         .await
         .expect("Failed to create database");
 
-    let pool = PgPool::connect_with(configuration.with_db())
-        .await
-        .expect("Failed to connect to Postgres");
+    let pool = get_connection_pool(&configuration);
 
     sqlx::migrate!("./migrations")
         .run(&pool)
