@@ -1,9 +1,10 @@
+use crate::helpers::TestApp;
+use linkify::{LinkFinder, LinkKind};
+use serde_json::Value;
 use wiremock::{
     matchers::{method, path},
     Mock, ResponseTemplate,
 };
-
-use crate::helpers::TestApp;
 
 #[tokio::test]
 async fn subscribe_returns_a_200_for_valid_form_data() {
@@ -104,4 +105,37 @@ async fn subscribe_sends_a_confirmation_email_for_valid_data() {
     app.post_subscriptions(body.into()).await;
 
     // then assert
+}
+
+#[tokio::test]
+async fn subscribe_sends_a_confirmation_email_with_a_link() {
+    // given
+    let app = TestApp::spawn().await;
+    let body = "name=Imi%C4%99%20Nazwisko&email=imie.nazwisko%40example.com";
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
+
+    // when
+    app.post_subscriptions(body.into()).await;
+
+    // then
+    let request = &app.email_server.received_requests().await.unwrap()[0];
+    let body: Value = serde_json::from_slice(&request.body).unwrap();
+    let get_link = |s: &str| {
+        let links: Vec<_> = LinkFinder::new()
+            .links(s)
+            .filter(|l| *l.kind() == LinkKind::Url)
+            .collect();
+        assert_eq!(links.len(), 1);
+        links[0].as_str().to_owned()
+    };
+    let html_link = get_link(&body["HtmlBody"].as_str().unwrap());
+    let text_link = get_link(&body["TextBody"].as_str().unwrap());
+
+    assert_eq!(html_link, text_link);
 }

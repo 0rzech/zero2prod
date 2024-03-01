@@ -1,8 +1,10 @@
 use crate::{
     app_state::AppState,
     domain::{NewSubscriber, SubscriberEmail, SubscriberName},
+    email_client::EmailClient,
 };
 use axum::{extract::State, http::StatusCode, routing::post, Form, Router};
+use reqwest::Error;
 use serde::Deserialize;
 use sqlx::PgPool;
 use time::OffsetDateTime;
@@ -36,14 +38,7 @@ async fn subscribe(State(app_state): State<AppState>, Form(form): Form<FormData>
         return StatusCode::INTERNAL_SERVER_ERROR;
     }
 
-    if app_state
-        .email_client
-        .send_email(
-            new_subscriber.email,
-            "Welcome!",
-            "Welcome to our newsletter!",
-            "Welcome to our newsletter!",
-        )
+    if send_confirmation_email(&app_state.email_client, new_subscriber)
         .await
         .is_err()
     {
@@ -79,6 +74,28 @@ async fn insert_subscriber(
     })?;
 
     Ok(())
+}
+
+#[tracing::instrument(
+    name = "Sending confirmation email to a new subscriber",
+    skip(email_client, new_subscriber)
+)]
+async fn send_confirmation_email(
+    email_client: &EmailClient,
+    new_subscriber: NewSubscriber,
+) -> Result<(), Error> {
+    let confirmation_link = "https://there-is-no-such-domain.com/subscriptions/confirm";
+    let html_body = format!(
+        "Welcome to our newsletter!<br/>\
+        Click <a href=\"{confirmation_link}\">here</a> to confirm your subscription."
+    );
+    let plain_body = format!(
+        "Welcome to our newsletter!\nVisit {confirmation_link} to confirm your subscription."
+    );
+
+    email_client
+        .send_email(new_subscriber.email, "Welcome!", &html_body, &plain_body)
+        .await
 }
 
 #[derive(Deserialize)]
