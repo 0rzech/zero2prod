@@ -3,6 +3,7 @@ use reqwest::{Client, Response};
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::net::SocketAddr;
 use uuid::Uuid;
+use wiremock::MockServer;
 use zero2prod::{
     configuration::{get_configuration, DatabaseSettings},
     startup::{get_connection_pool, Application},
@@ -26,6 +27,7 @@ static FAILED_TO_EXECUTE_REQUEST: &'static str = "Failed to execute request";
 pub struct TestApp {
     pub address: SocketAddr,
     pub db_pool: PgPool,
+    pub email_server: MockServer,
     client: Client,
 }
 
@@ -38,6 +40,9 @@ impl TestApp {
         config.application.port = 0;
 
         let db_pool = configure_database(&config.database).await;
+        let email_server = MockServer::start().await;
+        config.email_client.base_url = email_server.uri();
+
         let app = Application::build(config).await;
         let address = app.local_addr();
 
@@ -46,6 +51,7 @@ impl TestApp {
         Self {
             address,
             db_pool,
+            email_server,
             client: Client::new(),
         }
     }
