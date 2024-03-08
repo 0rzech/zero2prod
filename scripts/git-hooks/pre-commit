@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+set -euxo pipefail
+
+cargo sqlx prepare --workspace --check
+cargo clippy
+cargo test
+cargo fmt
