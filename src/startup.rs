@@ -3,12 +3,12 @@ use crate::{
     configuration::{DatabaseSettings, Settings},
     email_client::EmailClient,
     request_id::RequestUuid,
-    routes::{health_check, subscriptions},
+    routes::{health_check, subscriptions, subscriptions_confirm},
     telemetry::request_span,
 };
-use axum::{serve::Serve, Router};
+use axum::{http::Uri, serve::Serve, Router};
 use sqlx::{postgres::PgPoolOptions, PgPool};
-use std::net::SocketAddr;
+use std::{net::SocketAddr, str::FromStr};
 use tokio::net::TcpListener;
 use tower::ServiceBuilder;
 use tower_http::{
@@ -49,7 +49,7 @@ impl Application {
             .local_addr()
             .expect("Failed to get local address from the listener");
 
-        let server = run(listener, db_pool, email_client).await;
+        let server = run(listener, db_pool, email_client, config.application.base_url).await;
 
         Self { local_addr, server }
     }
@@ -72,15 +72,18 @@ async fn run(
     listener: TcpListener,
     db_pool: PgPool,
     email_client: EmailClient,
+    base_url: String,
 ) -> Serve<Router, Router> {
     let app_state = AppState {
         db_pool,
         email_client,
+        base_url: Uri::from_str(&base_url).expect("Failed to parse base url"),
     };
 
     let app = Router::new()
         .merge(health_check::router())
         .merge(subscriptions::router())
+        .merge(subscriptions_confirm::router())
         .with_state(app_state)
         .layer(
             ServiceBuilder::new()

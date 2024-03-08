@@ -1,7 +1,8 @@
+use claims::assert_some_eq;
+use linkify::{LinkFinder, LinkKind};
 use once_cell::sync::Lazy;
-use reqwest::{Client, Response};
 use sqlx::{Connection, Executor, PgConnection, PgPool};
-use std::net::SocketAddr;
+use std::{net::SocketAddr, str::FromStr};
 use uuid::Uuid;
 use wiremock::MockServer;
 use zero2prod::{
@@ -28,7 +29,7 @@ pub struct TestApp {
     pub address: SocketAddr,
     pub db_pool: PgPool,
     pub email_server: MockServer,
-    client: Client,
+    client: reqwest::Client,
 }
 
 impl TestApp {
@@ -52,11 +53,11 @@ impl TestApp {
             address,
             db_pool,
             email_server,
-            client: Client::new(),
+            client: reqwest::Client::new(),
         }
     }
 
-    pub async fn get_health_check(&self) -> Response {
+    pub async fn get_health_check(&self) -> reqwest::Response {
         self.client
             .get(self.url("/health_check"))
             .send()
@@ -64,7 +65,15 @@ impl TestApp {
             .expect(FAILED_TO_EXECUTE_REQUEST)
     }
 
-    pub async fn post_subscriptions(&self, body: String) -> Response {
+    pub async fn confirm_subscription(&self) -> reqwest::Response {
+        self.client
+            .get(self.url("/subscriptions/confirm"))
+            .send()
+            .await
+            .expect(FAILED_TO_EXECUTE_REQUEST)
+    }
+
+    pub async fn post_subscriptions(&self, body: String) -> reqwest::Response {
         self.client
             .post(self.url("/subscriptions"))
             .header("Content-Type", "application/x-www-form-urlencoded")
@@ -72,6 +81,31 @@ impl TestApp {
             .send()
             .await
             .expect(FAILED_TO_EXECUTE_REQUEST)
+    }
+
+    pub async fn get_confirmation_links_from_email_request(&self) -> ConfirmationLinks {
+        let request = &self.email_server.received_requests().await.unwrap()[0];
+        let body: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
+
+        let get_link = |s: &str| {
+            let links: Vec<_> = LinkFinder::new()
+                .links(s)
+                .filter(|l| *l.kind() == LinkKind::Url)
+                .collect();
+            assert_eq!(links.len(), 1);
+
+            let raw_link = links[0].as_str();
+            let mut link = reqwest::Url::from_str(&raw_link).unwrap();
+            assert_some_eq!(link.host_str(), "localhost");
+
+            link.set_port(Some(self.address.port())).unwrap();
+            link
+        };
+
+        let html = get_link(&body["HtmlBody"].as_str().unwrap());
+        let plain_text = get_link(&body["TextBody"].as_str().unwrap());
+
+        ConfirmationLinks { html, plain_text }
     }
 
     fn url(&self, endpoint: &str) -> String {
@@ -96,4 +130,9 @@ async fn configure_database(configuration: &DatabaseSettings) -> PgPool {
         .expect("Failed to migrate database");
 
     pool
+}
+
+pub struct ConfirmationLinks {
+    pub html: reqwest::Url,
+    pub plain_text: reqwest::Url,
 }

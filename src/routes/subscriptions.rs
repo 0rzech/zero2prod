@@ -3,7 +3,12 @@ use crate::{
     domain::{NewSubscriber, SubscriberEmail, SubscriberName},
     email_client::EmailClient,
 };
-use axum::{extract::State, http::StatusCode, routing::post, Form, Router};
+use axum::{
+    extract::State,
+    http::{StatusCode, Uri},
+    routing::post,
+    Form, Router,
+};
 use reqwest::Error;
 use serde::Deserialize;
 use sqlx::PgPool;
@@ -16,7 +21,7 @@ pub fn router() -> Router<AppState> {
 
 #[tracing::instrument(
     name = "Adding new subscriber",
-    skip(form, app_state),
+    skip(app_state, form),
     fields(
         subscriber_email = %form.email,
         subscriber_name = %form.name
@@ -38,7 +43,7 @@ async fn subscribe(State(app_state): State<AppState>, Form(form): Form<FormData>
         return StatusCode::INTERNAL_SERVER_ERROR;
     }
 
-    if send_confirmation_email(&app_state.email_client, new_subscriber)
+    if send_confirmation_email(&app_state.email_client, new_subscriber, &app_state.base_url)
         .await
         .is_err()
     {
@@ -78,13 +83,14 @@ async fn insert_subscriber(
 
 #[tracing::instrument(
     name = "Sending confirmation email to a new subscriber",
-    skip(email_client, new_subscriber)
+    skip(email_client, new_subscriber, base_url)
 )]
 async fn send_confirmation_email(
     email_client: &EmailClient,
     new_subscriber: NewSubscriber,
+    base_url: &Uri,
 ) -> Result<(), Error> {
-    let confirmation_link = "https://there-is-no-such-domain.com/subscriptions/confirm";
+    let confirmation_link = format!("{base_url}subscriptions/confirm?subscription_token=testtoken");
     let html_body = format!(
         "Welcome to our newsletter!<br/>\
         Click <a href=\"{confirmation_link}\">here</a> to confirm your subscription."
