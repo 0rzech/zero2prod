@@ -46,14 +46,14 @@ async fn subscribe(State(app_state): State<AppState>, Form(form): Form<FormData>
         }
     };
 
-    let subscriber_id = match insert_subscriber(&new_subscriber, &mut transaction).await {
+    let subscriber_id = match insert_subscriber(&mut transaction, &new_subscriber).await {
         Ok(subscriber_id) => subscriber_id,
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR,
     };
 
     let subscription_token = generate_subscription_token();
 
-    if store_token(subscriber_id, &subscription_token, &mut transaction)
+    if store_token(&mut transaction, subscriber_id, &subscription_token)
         .await
         .is_err()
     {
@@ -82,11 +82,11 @@ async fn subscribe(State(app_state): State<AppState>, Form(form): Form<FormData>
 
 #[tracing::instrument(
     name = "Saving new subscriber details in the database",
-    skip(new_subscriber, db_transaction)
+    skip(transaction, new_subscriber)
 )]
 async fn insert_subscriber(
+    transaction: &mut Transaction<'_, Postgres>,
     new_subscriber: &NewSubscriber,
-    db_transaction: &mut Transaction<'_, Postgres>,
 ) -> Result<Uuid, sqlx::Error> {
     let subscriber_id = Uuid::new_v4();
     let query = sqlx::query!(
@@ -100,7 +100,7 @@ async fn insert_subscriber(
         OffsetDateTime::now_utc(),
     );
 
-    db_transaction.execute(query).await.map_err(|e| {
+    transaction.execute(query).await.map_err(|e| {
         tracing::error!("Failed to execute query: {e:?}");
         e
     })?;
@@ -159,12 +159,12 @@ fn generate_subscription_token() -> String {
 
 #[tracing::instrument(
     name = "Storing subscription token in the database",
-    skip(subscription_token, db_transaction)
+    skip(transaction, subscription_token)
 )]
 async fn store_token(
+    transaction: &mut Transaction<'_, Postgres>,
     subscriber_id: Uuid,
     subscription_token: &str,
-    db_transaction: &mut Transaction<'_, Postgres>,
 ) -> Result<(), sqlx::Error> {
     let query = sqlx::query!(
         r#"
@@ -175,7 +175,7 @@ async fn store_token(
         subscriber_id
     );
 
-    db_transaction.execute(query).await.map_err(|e| {
+    transaction.execute(query).await.map_err(|e| {
         tracing::error!("Failed to execute query: {:?}", e);
         e
     })?;

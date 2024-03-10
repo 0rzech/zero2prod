@@ -19,8 +19,8 @@ async fn confirm(
     Query(parameters): Query<Parameters>,
 ) -> StatusCode {
     let subscriber_id = match get_subscriber_id_from_token(
-        &parameters.subscription_token,
         &app_state.db_pool,
+        &parameters.subscription_token,
     )
     .await
     {
@@ -29,7 +29,7 @@ async fn confirm(
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR,
     };
 
-    if confirm_subscriber(subscriber_id, &app_state.db_pool)
+    if confirm_subscriber(&app_state.db_pool, subscriber_id)
         .await
         .is_err()
     {
@@ -47,11 +47,11 @@ struct Parameters {
 
 #[tracing::instrument(
     name = "Getting subscriber_id from token",
-    skip(subscription_token, db_pool)
+    skip(pool, subscription_token)
 )]
 async fn get_subscriber_id_from_token(
+    pool: &PgPool,
     subscription_token: &str,
-    db_pool: &PgPool,
 ) -> Result<Option<Uuid>, sqlx::Error> {
     let result = sqlx::query!(
         r#"
@@ -60,7 +60,7 @@ async fn get_subscriber_id_from_token(
         "#,
         subscription_token,
     )
-    .fetch_optional(db_pool)
+    .fetch_optional(pool)
     .await
     .map_err(|e| {
         tracing::error!("Failed to execute query: {:?}", e);
@@ -70,8 +70,8 @@ async fn get_subscriber_id_from_token(
     Ok(result.map(|r| r.subscriber_id))
 }
 
-#[tracing::instrument(name = "Marking subscriber as confirmed", skip(subscriber_id, db_pool))]
-async fn confirm_subscriber(subscriber_id: Uuid, db_pool: &PgPool) -> Result<(), sqlx::Error> {
+#[tracing::instrument(name = "Marking subscriber as confirmed", skip(pool, subscriber_id))]
+async fn confirm_subscriber(pool: &PgPool, subscriber_id: Uuid) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"
         UPDATE subscriptions SET status = 'confirmed'
@@ -79,7 +79,7 @@ async fn confirm_subscriber(subscriber_id: Uuid, db_pool: &PgPool) -> Result<(),
         "#,
         subscriber_id,
     )
-    .execute(db_pool)
+    .execute(pool)
     .await
     .map_err(|e| {
         tracing::error!("Failed to execute query: {:?}", e);
