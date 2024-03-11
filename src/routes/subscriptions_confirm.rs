@@ -6,7 +6,7 @@ use axum::{
     Router,
 };
 use serde::Deserialize;
-use sqlx::PgPool;
+use sqlx::{Executor, Postgres, Row, Transaction};
 use uuid::Uuid;
 
 pub fn router() -> Router<AppState> {
@@ -18,8 +18,16 @@ async fn confirm(
     State(app_state): State<AppState>,
     Query(parameters): Query<Parameters>,
 ) -> StatusCode {
+    let mut transaction = match app_state.db_pool.begin().await {
+        Ok(transaction) => transaction,
+        Err(e) => {
+            tracing::error!("Failed to begin transaction: {:?}", e);
+            return StatusCode::INTERNAL_SERVER_ERROR;
+        }
+    };
+
     let subscriber_id = match get_subscriber_id_from_token(
-        &app_state.db_pool,
+        &mut transaction,
         &parameters.subscription_token,
     )
     .await
@@ -29,10 +37,22 @@ async fn confirm(
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR,
     };
 
-    if confirm_subscriber(&app_state.db_pool, subscriber_id)
+    if confirm_subscriber(&mut transaction, subscriber_id)
         .await
         .is_err()
     {
+        return StatusCode::INTERNAL_SERVER_ERROR;
+    }
+
+    if delete_confirmation_tokens(&mut transaction, subscriber_id)
+        .await
+        .is_err()
+    {
+        return StatusCode::INTERNAL_SERVER_ERROR;
+    }
+
+    if let Err(e) = transaction.commit().await {
+        tracing::error!("Failed to commit transaction: {:?}", e);
         return StatusCode::INTERNAL_SERVER_ERROR;
     }
 
@@ -47,43 +67,79 @@ struct Parameters {
 
 #[tracing::instrument(
     name = "Getting subscriber_id from token",
-    skip(pool, subscription_token)
+    skip(transaction, subscription_token)
 )]
 async fn get_subscriber_id_from_token(
-    pool: &PgPool,
+    transaction: &mut Transaction<'_, Postgres>,
     subscription_token: &str,
 ) -> Result<Option<Uuid>, sqlx::Error> {
-    let result = sqlx::query!(
+    let query = sqlx::query!(
         r#"
         SELECT subscriber_id FROM subscription_tokens
         WHERE subscription_token = $1
         "#,
         subscription_token,
-    )
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| {
-        tracing::error!("Failed to execute query: {:?}", e);
+    );
+
+    let result = transaction.fetch_optional(query).await.map_err(|e| {
+        tracing::error!("Failed fetch subscriber id: {:?}", e);
         e
     })?;
 
-    Ok(result.map(|r| r.subscriber_id))
+    let subscriber_id = match result {
+        Some(row) => row.try_get("subscriber_id").map_err(|e| {
+            tracing::error!("Failed to instantiate subscriber_id: {:?}", e);
+            e
+        })?,
+        _ => None,
+    };
+
+    Ok(subscriber_id)
 }
 
-#[tracing::instrument(name = "Marking subscriber as confirmed", skip(pool, subscriber_id))]
-async fn confirm_subscriber(pool: &PgPool, subscriber_id: Uuid) -> Result<(), sqlx::Error> {
-    sqlx::query!(
+#[tracing::instrument(
+    name = "Marking subscriber as confirmed",
+    skip(transaction, subscriber_id)
+)]
+async fn confirm_subscriber(
+    transaction: &mut Transaction<'_, Postgres>,
+    subscriber_id: Uuid,
+) -> Result<(), sqlx::Error> {
+    let query = sqlx::query!(
         r#"
         UPDATE subscriptions SET status = $1
         WHERE id = $2
         "#,
         SubscriptionStatus::Confirmed.as_ref(),
         subscriber_id,
-    )
-    .execute(pool)
-    .await
-    .map_err(|e| {
+    );
+
+    transaction.execute(query).await.map_err(|e| {
         tracing::error!("Failed to execute query: {:?}", e);
+        e
+    })?;
+
+    Ok(())
+}
+
+#[tracing::instrument(
+    name = "Deleting subscribe confirmation tokens",
+    skip(transaction, subscriber_id)
+)]
+async fn delete_confirmation_tokens(
+    transaction: &mut Transaction<'_, Postgres>,
+    subscriber_id: Uuid,
+) -> Result<(), sqlx::Error> {
+    let query = sqlx::query!(
+        r#"
+        DELETE FROM subscription_tokens
+        WHERE subscriber_id = $1
+        "#,
+        subscriber_id
+    );
+
+    transaction.execute(query).await.map_err(|e| {
+        tracing::error!("Failed to delete subscription confirmation tokens: {:?}", e);
         e
     })?;
 

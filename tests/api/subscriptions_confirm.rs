@@ -73,3 +73,57 @@ async fn clicking_on_the_confirmation_link_confirms_a_subscriber() {
     assert_eq!(saved.name, "Imię Nazwisko");
     assert_eq!(saved.status, "confirmed");
 }
+
+#[tokio::test]
+async fn subsequent_clicks_on_the_confirmation_link_are_rejected_with_a_401() {
+    // given
+    let app = TestApp::spawn().await;
+    let body = "name=Imi%C4%99%20Nazwisko&email=imie.nazwisko%40example.com";
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&app.email_server)
+        .await;
+
+    app.post_subscriptions(body.into()).await;
+
+    let links = app.get_confirmation_links_from_email_request().await;
+    assert_some_eq!(links.html.host_str(), "localhost");
+
+    // when
+    reqwest::get(links.html.clone()).await.unwrap();
+    let response = reqwest::get(links.html).await.unwrap();
+
+    // then
+    assert_eq!(response.status().as_u16(), 401);
+}
+
+#[tokio::test]
+async fn clicking_on_the_confirmation_link_deletes_subscription_tokens() {
+    // given
+    let app = TestApp::spawn().await;
+    let body = "name=Imi%C4%99%20Nazwisko&email=imie.nazwisko%40example.com";
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&app.email_server)
+        .await;
+
+    app.post_subscriptions(body.into()).await;
+
+    let links = app.get_confirmation_links_from_email_request().await;
+    assert_some_eq!(links.html.host_str(), "localhost");
+
+    // when
+    reqwest::get(links.html).await.unwrap();
+
+    // then
+    let result = sqlx::query!("SELECT * FROM subscription_tokens")
+        .fetch_all(&app.db_pool)
+        .await
+        .expect("Failed to fetch subscription_tokens");
+
+    assert_eq!(result.len(), 0);
+}
