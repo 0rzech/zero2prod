@@ -1,6 +1,6 @@
 use crate::{
     app_state::AppState,
-    domain::{NewSubscriber, SubscriberEmail, SubscriberName},
+    domain::{NewSubscriber, SubscriberEmail, SubscriberName, Subscription, SubscriptionStatus},
     email_client::EmailClient,
 };
 use axum::{
@@ -12,7 +12,7 @@ use axum::{
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use reqwest::Error;
 use serde::Deserialize;
-use sqlx::{Executor, Postgres, Transaction};
+use sqlx::{Executor, FromRow, Postgres, Transaction};
 use std::iter::repeat_with;
 use time::OffsetDateTime;
 use uuid::Uuid;
@@ -30,7 +30,7 @@ pub fn router() -> Router<AppState> {
     )
 )]
 async fn subscribe(State(app_state): State<AppState>, Form(form): Form<FormData>) -> StatusCode {
-    let new_subscriber = match form.try_into() {
+    let new_subscriber: NewSubscriber = match form.try_into() {
         Ok(subscriber) => subscriber,
         Err(e) => {
             tracing::info!(e);
@@ -46,9 +46,21 @@ async fn subscribe(State(app_state): State<AppState>, Form(form): Form<FormData>
         }
     };
 
-    let subscriber_id = match insert_subscriber(&mut transaction, &new_subscriber).await {
-        Ok(subscriber_id) => subscriber_id,
+    let subscription = match get_subscription(&mut transaction, &new_subscriber.email).await {
+        Ok(subscription) => subscription,
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR,
+    };
+
+    let subscriber_id = if let Some(subscription) = subscription {
+        if subscription.status == SubscriptionStatus::Confirmed {
+            return StatusCode::UNPROCESSABLE_ENTITY;
+        }
+        subscription.id
+    } else {
+        match insert_subscriber(&mut transaction, &new_subscriber).await {
+            Ok(subscriber_id) => subscriber_id,
+            Err(_) => return StatusCode::INTERNAL_SERVER_ERROR,
+        }
     };
 
     let subscription_token = generate_subscription_token();
@@ -81,6 +93,39 @@ async fn subscribe(State(app_state): State<AppState>, Form(form): Form<FormData>
 }
 
 #[tracing::instrument(
+    name = "Getting subscriber details from the database",
+    skip(transaction, email)
+)]
+async fn get_subscription(
+    transaction: &mut Transaction<'_, Postgres>,
+    email: &SubscriberEmail,
+) -> Result<Option<Subscription>, sqlx::Error> {
+    let query = sqlx::query!(
+        r#"
+        SELECT * FROM subscriptions
+        WHERE email = $1
+        "#,
+        email.as_ref()
+    );
+
+    let subscription = match transaction.fetch_optional(query).await {
+        Ok(Some(row)) => Subscription::from_row(&row)
+            .map_err(|e| {
+                tracing::error!("Failed to instantiate subscription: {:?}", e);
+                e
+            })
+            .map(Some),
+        Ok(None) => Ok(None),
+        Err(e) => {
+            tracing::error!("Failed to get subscriber: {:?}", e);
+            Err(e)
+        }
+    }?;
+
+    Ok(subscription)
+}
+
+#[tracing::instrument(
     name = "Saving new subscriber details in the database",
     skip(transaction, new_subscriber)
 )]
@@ -92,12 +137,13 @@ async fn insert_subscriber(
     let query = sqlx::query!(
         r#"
         INSERT INTO subscriptions (id, email, name, subscribed_at, status)
-        VALUES ($1, $2, $3, $4, 'pending_confirmation')
+        VALUES ($1, $2, $3, $4, $5)
         "#,
         subscriber_id,
         new_subscriber.email.as_ref(),
         new_subscriber.name.as_ref(),
         OffsetDateTime::now_utc(),
+        SubscriptionStatus::PendingConfirmation.as_ref(),
     );
 
     transaction.execute(query).await.map_err(|e| {

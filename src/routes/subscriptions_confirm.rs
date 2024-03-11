@@ -1,4 +1,4 @@
-use crate::app_state::AppState;
+use crate::{app_state::AppState, domain::SubscriptionStatus};
 use axum::{
     extract::{Query, State},
     http::StatusCode,
@@ -74,9 +74,10 @@ async fn get_subscriber_id_from_token(
 async fn confirm_subscriber(pool: &PgPool, subscriber_id: Uuid) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"
-        UPDATE subscriptions SET status = 'confirmed'
-        WHERE id = $1
+        UPDATE subscriptions SET status = $1
+        WHERE id = $2
         "#,
+        SubscriptionStatus::Confirmed.as_ref(),
         subscriber_id,
     )
     .execute(pool)

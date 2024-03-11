@@ -1,4 +1,9 @@
 use serde::Deserialize;
+use sqlx::{
+    error::BoxDynError,
+    postgres::{PgTypeInfo, PgValueRef},
+    Decode, Postgres, Type,
+};
 use validator::validate_email;
 
 #[derive(Clone, Debug, Deserialize)]
@@ -17,6 +22,19 @@ impl SubscriberEmail {
 impl AsRef<str> for SubscriberEmail {
     fn as_ref(&self) -> &str {
         &self.0
+    }
+}
+
+impl Type<Postgres> for SubscriberEmail {
+    fn type_info() -> PgTypeInfo {
+        String::type_info()
+    }
+}
+
+impl<'r> Decode<'r, Postgres> for SubscriberEmail {
+    fn decode(value: PgValueRef<'r>) -> Result<Self, BoxDynError> {
+        let email = String::decode(value)?;
+        Self::parse(email).map_err(|e| e.into())
     }
 }
 
