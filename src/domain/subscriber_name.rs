@@ -1,10 +1,5 @@
 use once_cell::sync::Lazy;
 use serde::Deserialize;
-use sqlx::{
-    error::BoxDynError,
-    postgres::{PgTypeInfo, PgValueRef},
-    Decode, Postgres, Type,
-};
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug, Deserialize)]
@@ -37,16 +32,11 @@ impl AsRef<str> for SubscriberName {
     }
 }
 
-impl Type<Postgres> for SubscriberName {
-    fn type_info() -> PgTypeInfo {
-        String::type_info()
-    }
-}
+impl TryFrom<String> for SubscriberName {
+    type Error = String;
 
-impl<'r> Decode<'r, Postgres> for SubscriberName {
-    fn decode(value: PgValueRef<'r>) -> Result<Self, BoxDynError> {
-        let name = String::decode(value)?;
-        Self::parse(name).map_err(|e| e.into())
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        Self::parse(s)
     }
 }
 

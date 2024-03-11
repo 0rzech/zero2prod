@@ -1,7 +1,4 @@
-use sqlx::Type;
-
-#[derive(PartialEq, Type)]
-#[sqlx(type_name = "text", rename_all = "snake_case")]
+#[derive(PartialEq)]
 pub enum SubscriptionStatus {
     PendingConfirmation,
     Confirmed,
@@ -12,6 +9,20 @@ impl AsRef<str> for SubscriptionStatus {
         match self {
             SubscriptionStatus::PendingConfirmation => "pending_confirmation",
             SubscriptionStatus::Confirmed => "confirmed",
+        }
+    }
+}
+
+impl TryFrom<String> for SubscriptionStatus {
+    type Error = String;
+
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        match s.as_ref() {
+            "pending_confirmation" => Ok(SubscriptionStatus::PendingConfirmation),
+            "confirmed" => Ok(SubscriptionStatus::Confirmed),
+            other => Err(format!(
+                "`{other}` is not a valid variant of SubscriptionStatus",
+            )),
         }
     }
 }
