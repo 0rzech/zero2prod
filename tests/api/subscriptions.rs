@@ -71,7 +71,7 @@ async fn subscribe_returns_a_400_when_fields_are_present_but_empty() {
         // then
         assert_eq!(
             400,
-            response.status().as_u16(),
+            response.status(),
             "The API did not return a 400 BAD_REQUEST when the payload was {}",
             description
         );
@@ -126,7 +126,7 @@ async fn subscribe_sends_a_confirmation_email_on_repeated_calls() {
 
         // then
         assert_eq!(
-            response.status().as_u16(),
+            response.status(),
             200,
             "The API did not reurn a 200 OK for call number {}",
             i
@@ -238,7 +238,7 @@ async fn subscribe_returns_a_422_when_email_is_already_confirmed() {
 
     // then
     assert_eq!(
-        response.status().as_u16(),
+        response.status(),
         422,
         "The API did not return a 422 Unprocessable Entity",
     );

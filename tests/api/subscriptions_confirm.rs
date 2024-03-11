@@ -14,7 +14,7 @@ async fn confirmations_without_token_are_rejected_with_a_400() {
     let response = app.confirm_subscription().await;
 
     // then
-    assert_eq!(response.status().as_u16(), 400);
+    assert_eq!(response.status(), 400);
 }
 
 #[tokio::test]
@@ -38,7 +38,7 @@ async fn the_link_returned_by_subscribe_returns_200_if_called() {
     let response = reqwest::get(links.html).await.unwrap();
 
     // then
-    assert_eq!(response.status().as_u16(), 200);
+    assert_eq!(response.status(), 200);
 }
 
 #[tokio::test]
@@ -96,7 +96,7 @@ async fn subsequent_clicks_on_the_confirmation_link_are_rejected_with_a_401() {
     let response = reqwest::get(links.html).await.unwrap();
 
     // then
-    assert_eq!(response.status().as_u16(), 401);
+    assert_eq!(response.status(), 401);
 }
 
 #[tokio::test]
