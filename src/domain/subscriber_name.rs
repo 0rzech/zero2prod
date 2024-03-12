@@ -9,7 +9,7 @@ static FORBIDDEN_CHARS: [char; 10] = ['<', '>', '\'', '"', '\\', '(', ')', '{', 
 static FORBIDDEN_CHARS_STRING: Lazy<String> = Lazy::new(|| String::from_iter(FORBIDDEN_CHARS));
 
 impl SubscriberName {
-    pub fn parse(s: String) -> Result<SubscriberName, String> {
+    pub fn parse(s: String) -> Result<Self, String> {
         match s {
             _ if s.trim().is_empty() => Err(format!(
                 "Subscriber name is empty or contains whitespace only: `{s}`"
