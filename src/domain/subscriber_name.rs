@@ -42,8 +42,7 @@ impl TryFrom<String> for SubscriberName {
 
 #[cfg(test)]
 mod tests {
-    use super::FORBIDDEN_CHARS;
-    use crate::domain::SubscriberName;
+    use super::{SubscriberName, FORBIDDEN_CHARS};
     use claims::{assert_err, assert_ok};
 
     #[test]

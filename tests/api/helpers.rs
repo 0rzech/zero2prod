@@ -65,9 +65,21 @@ impl TestApp {
             .expect(FAILED_TO_EXECUTE_REQUEST)
     }
 
-    pub async fn confirm_subscription(&self) -> reqwest::Response {
+    pub async fn confirm_subscription_without_token(&self) -> reqwest::Response {
         self.client
             .get(self.url("/subscriptions/confirm"))
+            .send()
+            .await
+            .expect(FAILED_TO_EXECUTE_REQUEST)
+    }
+
+    pub async fn confirm_subscription(&self, token: &str) -> reqwest::Response {
+        self.client
+            .get(format!(
+                "{}?subscription_token={}",
+                self.url("/subscriptions/confirm"),
+                token
+            ))
             .send()
             .await
             .expect(FAILED_TO_EXECUTE_REQUEST)

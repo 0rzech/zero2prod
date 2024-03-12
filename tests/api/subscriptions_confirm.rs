@@ -6,12 +6,36 @@ use wiremock::{
 };
 
 #[tokio::test]
-async fn confirmations_without_token_are_rejected_with_a_400() {
+async fn confirmation_without_token_is_rejected_with_a_400() {
     // given
     let app = TestApp::spawn().await;
 
     // when
-    let response = app.confirm_subscription().await;
+    let response = app.confirm_subscription_without_token().await;
+
+    // then
+    assert_eq!(response.status(), 400);
+}
+
+#[tokio::test]
+async fn confirmation_with_empty_token_is_rejected_with_a_400() {
+    // given
+    let app = TestApp::spawn().await;
+
+    // when
+    let response = app.confirm_subscription("").await;
+
+    // then
+    assert_eq!(response.status(), 400);
+}
+
+#[tokio::test]
+async fn confirmation_with_invalid_token_is_rejected_with_a_400() {
+    // given
+    let app = TestApp::spawn().await;
+
+    // when
+    let response = app.confirm_subscription("a").await;
 
     // then
     assert_eq!(response.status(), 400);

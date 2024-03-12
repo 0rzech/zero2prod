@@ -1,10 +1,14 @@
-use crate::{app_state::AppState, domain::SubscriptionStatus};
+use crate::{
+    app_state::AppState,
+    domain::{SubscriptionStatus, SubscriptionToken},
+};
 use axum::{
     extract::{Query, State},
     http::StatusCode,
     routing::get,
     Router,
 };
+use secrecy::ExposeSecret;
 use serde::Deserialize;
 use sqlx::{Executor, Postgres, Row, Transaction};
 use uuid::Uuid;
@@ -26,16 +30,20 @@ async fn confirm(
         }
     };
 
-    let subscriber_id = match get_subscriber_id_from_token(
-        &mut transaction,
-        &parameters.subscription_token,
-    )
-    .await
-    {
-        Ok(Some(id)) => id,
-        Ok(None) => return StatusCode::UNAUTHORIZED,
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR,
+    let subscription_token = match SubscriptionToken::parse(parameters.subscription_token) {
+        Ok(token) => token,
+        Err(e) => {
+            tracing::error!(e);
+            return StatusCode::BAD_REQUEST;
+        }
     };
+
+    let subscriber_id =
+        match get_subscriber_id_from_token(&mut transaction, &subscription_token).await {
+            Ok(Some(id)) => id,
+            Ok(None) => return StatusCode::UNAUTHORIZED,
+            Err(_) => return StatusCode::INTERNAL_SERVER_ERROR,
+        };
 
     if confirm_subscriber(&mut transaction, subscriber_id)
         .await
@@ -71,14 +79,14 @@ struct Parameters {
 )]
 async fn get_subscriber_id_from_token(
     transaction: &mut Transaction<'_, Postgres>,
-    subscription_token: &str,
+    subscription_token: &SubscriptionToken,
 ) -> Result<Option<Uuid>, sqlx::Error> {
     let query = sqlx::query!(
         r#"
         SELECT subscriber_id FROM subscription_tokens
         WHERE subscription_token = $1
         "#,
-        subscription_token,
+        subscription_token.expose_secret(),
     );
 
     let result = transaction.fetch_optional(query).await.map_err(|e| {

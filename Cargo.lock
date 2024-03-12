@@ -3026,6 +3026,7 @@ dependencies = [
  "once_cell",
  "proptest",
  "rand",
+ "regex",
  "reqwest",
  "secrecy",
  "serde",

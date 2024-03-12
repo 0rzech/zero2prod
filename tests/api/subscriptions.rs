@@ -1,9 +1,10 @@
 use crate::helpers::TestApp;
+use regex::Regex;
 use wiremock::{
     matchers::{method, path},
     Mock, ResponseTemplate,
 };
-use zero2prod::domain::SubscriptionStatus;
+use zero2prod::domain::{token_regex, SubscriptionStatus};
 
 #[tokio::test]
 async fn subscribe_returns_a_200_for_valid_form_data() {
@@ -171,7 +172,15 @@ async fn subscribe_sends_a_confirmation_email_with_a_link() {
 
     // then
     let links = app.get_confirmation_links_from_email_request().await;
+    let re = Regex::new(format!(r"\?subscription_token={}$", token_regex()).as_str()).unwrap();
+
     assert_eq!(links.html, links.plain_text);
+    assert!(
+        re.is_match(links.html.as_str()),
+        "`{}` didn't match `{}` regex",
+        links.html,
+        re
+    );
 }
 
 #[tokio::test]

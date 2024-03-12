@@ -1,6 +1,9 @@
 use crate::{
     app_state::AppState,
-    domain::{NewSubscriber, SubscriberEmail, SubscriberName, Subscription, SubscriptionStatus},
+    domain::{
+        NewSubscriber, SubscriberEmail, SubscriberName, Subscription, SubscriptionStatus,
+        SubscriptionToken,
+    },
     email_client::EmailClient,
 };
 use axum::{
@@ -9,11 +12,10 @@ use axum::{
     routing::post,
     Form, Router,
 };
-use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use reqwest::Error;
+use secrecy::ExposeSecret;
 use serde::Deserialize;
 use sqlx::{Executor, FromRow, Postgres, Transaction};
-use std::iter::repeat_with;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
@@ -63,7 +65,7 @@ async fn subscribe(State(app_state): State<AppState>, Form(form): Form<FormData>
         }
     };
 
-    let subscription_token = generate_subscription_token();
+    let subscription_token = SubscriptionToken::generate();
 
     if store_token(&mut transaction, subscriber_id, &subscription_token)
         .await
@@ -162,10 +164,12 @@ async fn send_confirmation_email(
     email_client: &EmailClient,
     new_subscriber: NewSubscriber,
     base_url: &Uri,
-    subscription_token: &str,
+    subscription_token: &SubscriptionToken,
 ) -> Result<(), Error> {
-    let confirmation_link =
-        format!("{base_url}subscriptions/confirm?subscription_token={subscription_token}");
+    let confirmation_link = format!(
+        "{base_url}subscriptions/confirm?subscription_token={}",
+        subscription_token.expose_secret()
+    );
     let html_body = format!(
         "Welcome to our newsletter!<br/>\
         Click <a href=\"{confirmation_link}\">here</a> to confirm your subscription."
@@ -195,14 +199,6 @@ impl TryFrom<FormData> for NewSubscriber {
     }
 }
 
-fn generate_subscription_token() -> String {
-    let mut rng = thread_rng();
-    repeat_with(|| rng.sample(Alphanumeric))
-        .map(char::from)
-        .take(25)
-        .collect()
-}
-
 #[tracing::instrument(
     name = "Storing subscription token in the database",
     skip(transaction, subscription_token)
@@ -210,14 +206,14 @@ fn generate_subscription_token() -> String {
 async fn store_token(
     transaction: &mut Transaction<'_, Postgres>,
     subscriber_id: Uuid,
-    subscription_token: &str,
+    subscription_token: &SubscriptionToken,
 ) -> Result<(), sqlx::Error> {
     let query = sqlx::query!(
         r#"
         INSERT INTO subscription_tokens (subscription_token, subscriber_id)
         VALUES ($1, $2)
         "#,
-        subscription_token,
+        subscription_token.expose_secret(),
         subscriber_id
     );
 
