@@ -69,7 +69,6 @@ async fn confirm(
 
 #[derive(Deserialize)]
 struct Parameters {
-    #[allow(dead_code)]
     subscription_token: String,
 }
 
