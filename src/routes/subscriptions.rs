@@ -6,13 +6,13 @@ use crate::{
     },
     email_client::EmailClient,
 };
+use askama::Template;
 use axum::{
     extract::State,
     http::{StatusCode, Uri},
     routing::post,
     Form, Router,
 };
-use reqwest::Error;
 use secrecy::ExposeSecret;
 use serde::Deserialize;
 use sqlx::{Executor, FromRow, Postgres, Transaction};
@@ -165,22 +165,37 @@ async fn send_confirmation_email(
     new_subscriber: NewSubscriber,
     base_url: &Uri,
     subscription_token: &SubscriptionToken,
-) -> Result<(), Error> {
-    let confirmation_link = format!(
+) -> Result<(), String> {
+    let link = format!(
         "{base_url}subscriptions/confirm?subscription_token={}",
         subscription_token.expose_secret()
     );
-    let html_body = format!(
-        "Welcome to our newsletter!<br/>\
-        Click <a href=\"{confirmation_link}\">here</a> to confirm your subscription."
-    );
-    let plain_body = format!(
-        "Welcome to our newsletter!\nVisit {confirmation_link} to confirm your subscription."
-    );
+
+    let html_body = HtmlBodyTemplate {
+        confirmation_link: &link,
+    }
+    .render()
+    .map_err(|e| {
+        tracing::error!("Failed to render html body: {:?}", e);
+        e.to_string()
+    })?;
+
+    let plain_body = PlainTextBodyTemplate {
+        confirmation_link: &link,
+    }
+    .render()
+    .map_err(|e| {
+        tracing::error!("Failed to render plain text body: {:?}", e);
+        e.to_string()
+    })?;
 
     email_client
         .send_email(new_subscriber.email, "Welcome!", &html_body, &plain_body)
         .await
+        .map_err(|e| {
+            tracing::error!("Failed to send confirmation email: {:?}", e);
+            e.to_string()
+        })
 }
 
 #[derive(Deserialize)]
@@ -223,4 +238,16 @@ async fn store_token(
     })?;
 
     Ok(())
+}
+
+#[derive(Template)]
+#[template(path = "welcome.html")]
+struct HtmlBodyTemplate<'a> {
+    confirmation_link: &'a str,
+}
+
+#[derive(Template)]
+#[template(path = "welcome.txt")]
+struct PlainTextBodyTemplate<'a> {
+    confirmation_link: &'a str,
 }
