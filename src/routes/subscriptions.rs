@@ -198,22 +198,6 @@ async fn send_confirmation_email(
         })
 }
 
-#[derive(Deserialize)]
-struct FormData {
-    name: String,
-    email: String,
-}
-
-impl TryFrom<FormData> for NewSubscriber {
-    type Error = String;
-
-    fn try_from(value: FormData) -> Result<Self, Self::Error> {
-        let email = SubscriberEmail::parse(value.email)?;
-        let name = SubscriberName::parse(value.name)?;
-        Ok(NewSubscriber { email, name })
-    }
-}
-
 #[tracing::instrument(
     name = "Storing subscription token in the database",
     skip(transaction, subscription_token)
@@ -238,6 +222,22 @@ async fn store_token(
     })?;
 
     Ok(())
+}
+
+#[derive(Deserialize)]
+struct FormData {
+    name: String,
+    email: String,
+}
+
+impl TryFrom<FormData> for NewSubscriber {
+    type Error = String;
+
+    fn try_from(value: FormData) -> Result<Self, Self::Error> {
+        let email = SubscriberEmail::parse(value.email)?;
+        let name = SubscriberName::parse(value.name)?;
+        Ok(NewSubscriber { email, name })
+    }
 }
 
 #[derive(Template)]
