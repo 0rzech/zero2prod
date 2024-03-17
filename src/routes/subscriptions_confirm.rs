@@ -2,9 +2,11 @@ use crate::{
     app_state::AppState,
     domain::{SubscriptionStatus, SubscriptionToken},
 };
+use anyhow::Context;
 use axum::{
     extract::{Query, State},
     http::StatusCode,
+    response::{IntoResponse, Response},
     routing::get,
     Router,
 };
@@ -21,50 +23,31 @@ pub fn router() -> Router<AppState> {
 async fn confirm(
     State(app_state): State<AppState>,
     Query(parameters): Query<Parameters>,
-) -> StatusCode {
-    let mut transaction = match app_state.db_pool.begin().await {
-        Ok(transaction) => transaction,
-        Err(e) => {
-            tracing::error!("Failed to begin transaction: {:?}", e);
-            return StatusCode::INTERNAL_SERVER_ERROR;
-        }
-    };
+) -> Result<(), SubscriptionConfirmationError> {
+    let mut transaction = app_state
+        .db_pool
+        .begin()
+        .await
+        .context("Failed to begin transaction")?;
 
-    let subscription_token = match SubscriptionToken::parse(parameters.subscription_token) {
-        Ok(token) => token,
-        Err(e) => {
-            tracing::error!(e);
-            return StatusCode::BAD_REQUEST;
-        }
-    };
+    let subscription_token = SubscriptionToken::parse(parameters.subscription_token)
+        .map_err(SubscriptionConfirmationError::InvalidTokenFormat)?;
 
     let subscriber_id =
-        match get_subscriber_id_from_token(&mut transaction, &subscription_token).await {
-            Ok(Some(id)) => id,
-            Ok(None) => return StatusCode::UNAUTHORIZED,
-            Err(_) => return StatusCode::INTERNAL_SERVER_ERROR,
+        match get_subscriber_id_from_token(&mut transaction, &subscription_token).await? {
+            Some(id) => id,
+            None => return Err(SubscriptionConfirmationError::UnauthorizedToken),
         };
 
-    if confirm_subscriber(&mut transaction, subscriber_id)
+    confirm_subscriber(&mut transaction, subscriber_id).await?;
+    delete_confirmation_tokens(&mut transaction, subscriber_id).await?;
+
+    transaction
+        .commit()
         .await
-        .is_err()
-    {
-        return StatusCode::INTERNAL_SERVER_ERROR;
-    }
+        .context("Failed to commit transaction")?;
 
-    if delete_confirmation_tokens(&mut transaction, subscriber_id)
-        .await
-        .is_err()
-    {
-        return StatusCode::INTERNAL_SERVER_ERROR;
-    }
-
-    if let Err(e) = transaction.commit().await {
-        tracing::error!("Failed to commit transaction: {:?}", e);
-        return StatusCode::INTERNAL_SERVER_ERROR;
-    }
-
-    StatusCode::OK
+    Ok(())
 }
 
 #[derive(Deserialize)]
@@ -79,7 +62,7 @@ struct Parameters {
 async fn get_subscriber_id_from_token(
     transaction: &mut Transaction<'_, Postgres>,
     subscription_token: &SubscriptionToken,
-) -> Result<Option<Uuid>, sqlx::Error> {
+) -> Result<Option<Uuid>, anyhow::Error> {
     let query = sqlx::query!(
         r#"
         SELECT subscriber_id FROM subscription_tokens
@@ -88,16 +71,14 @@ async fn get_subscriber_id_from_token(
         subscription_token.expose_secret(),
     );
 
-    let result = transaction.fetch_optional(query).await.map_err(|e| {
-        tracing::error!("Failed fetch subscriber id: {:?}", e);
-        e
-    })?;
-
-    let subscriber_id = match result {
-        Some(row) => row.try_get("subscriber_id").map_err(|e| {
-            tracing::error!("Failed to instantiate subscriber_id: {:?}", e);
-            e
-        })?,
+    let subscriber_id = match transaction
+        .fetch_optional(query)
+        .await
+        .context("Failed fetch subscriber id")?
+    {
+        Some(row) => row
+            .try_get("subscriber_id")
+            .context("Failed to instantiate subscriber_id")?,
         _ => None,
     };
 
@@ -111,7 +92,7 @@ async fn get_subscriber_id_from_token(
 async fn confirm_subscriber(
     transaction: &mut Transaction<'_, Postgres>,
     subscriber_id: Uuid,
-) -> Result<(), sqlx::Error> {
+) -> Result<(), anyhow::Error> {
     let query = sqlx::query!(
         r#"
         UPDATE subscriptions SET status = $1
@@ -121,10 +102,10 @@ async fn confirm_subscriber(
         subscriber_id,
     );
 
-    transaction.execute(query).await.map_err(|e| {
-        tracing::error!("Failed to execute query: {:?}", e);
-        e
-    })?;
+    transaction
+        .execute(query)
+        .await
+        .context("Failed to update subscription status")?;
 
     Ok(())
 }
@@ -136,7 +117,7 @@ async fn confirm_subscriber(
 async fn delete_confirmation_tokens(
     transaction: &mut Transaction<'_, Postgres>,
     subscriber_id: Uuid,
-) -> Result<(), sqlx::Error> {
+) -> Result<(), anyhow::Error> {
     let query = sqlx::query!(
         r#"
         DELETE FROM subscription_tokens
@@ -145,10 +126,32 @@ async fn delete_confirmation_tokens(
         subscriber_id
     );
 
-    transaction.execute(query).await.map_err(|e| {
-        tracing::error!("Failed to delete subscription confirmation tokens: {:?}", e);
-        e
-    })?;
+    transaction
+        .execute(query)
+        .await
+        .context("Failed to delete subscription confirmation tokens")?;
 
     Ok(())
+}
+
+#[derive(Debug, thiserror::Error)]
+enum SubscriptionConfirmationError {
+    #[error("{0}")]
+    InvalidTokenFormat(String),
+    #[error("Token is not authorized")]
+    UnauthorizedToken,
+    #[error(transparent)]
+    UnexpectedError(#[from] anyhow::Error),
+}
+
+impl IntoResponse for SubscriptionConfirmationError {
+    fn into_response(self) -> Response {
+        tracing::error!("{:#?}", self);
+
+        match self {
+            Self::InvalidTokenFormat(_) => StatusCode::BAD_REQUEST.into_response(),
+            Self::UnauthorizedToken => StatusCode::UNAUTHORIZED.into_response(),
+            Self::UnexpectedError(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        }
+    }
 }

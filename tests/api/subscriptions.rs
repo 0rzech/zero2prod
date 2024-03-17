@@ -252,3 +252,26 @@ async fn subscribe_returns_a_422_when_email_is_already_confirmed() {
         "The API did not return a 422 Unprocessable Entity",
     );
 }
+
+#[tokio::test]
+async fn subscribe_fails_if_there_is_a_fatal_database_error() {
+    // given
+    let app = TestApp::spawn().await;
+    let body = "name=Imi%C4%99%20Nazwisko&email=imie.nazwisko%40example.com";
+
+    sqlx::query!(
+        r#"
+        ALTER TABLE subscription_tokens
+        DROP COLUMN subscription_token
+        "#
+    )
+    .execute(&app.db_pool)
+    .await
+    .unwrap();
+
+    // when
+    let response = app.post_subscriptions(body.into()).await;
+
+    // then
+    assert_eq!(response.status(), 500);
+}
