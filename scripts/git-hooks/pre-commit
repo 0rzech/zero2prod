@@ -3,6 +3,6 @@
 set -euxo pipefail
 
 cargo sqlx prepare --workspace --check
-cargo clippy
+cargo clippy -- --deny warnings
 cargo test
 cargo fmt
