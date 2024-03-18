@@ -149,8 +149,10 @@ impl IntoResponse for SubscriptionConfirmationError {
         tracing::error!("{:#?}", self);
 
         match self {
-            Self::InvalidTokenFormat(_) => StatusCode::BAD_REQUEST.into_response(),
-            Self::UnauthorizedToken => StatusCode::UNAUTHORIZED.into_response(),
+            Self::InvalidTokenFormat(_) => {
+                (StatusCode::BAD_REQUEST, self.to_string()).into_response()
+            }
+            Self::UnauthorizedToken => (StatusCode::UNAUTHORIZED, self.to_string()).into_response(),
             Self::UnexpectedError(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
         }
     }

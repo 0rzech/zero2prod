@@ -1,4 +1,5 @@
 use crate::helpers::TestApp;
+use claims::assert_ge;
 use regex::Regex;
 use wiremock::{
     matchers::{method, path},
@@ -74,6 +75,35 @@ async fn subscribe_returns_a_400_when_fields_are_present_but_empty() {
             400,
             response.status(),
             "The API did not return a 400 BAD_REQUEST when the payload was {}",
+            description
+        );
+    }
+}
+
+#[tokio::test]
+async fn subscribe_returns_validation_error_description_when_fields_are_present_but_empty() {
+    // given
+    let app = TestApp::spawn().await;
+    let test_cases = vec![
+        ("name=Imi%C4%99%20Nazwisko&email=", "empty email"),
+        (
+            "name=Imi%C4%99%20Nazwisko&email=definitely-not-an-email",
+            "invalid email",
+        ),
+        ("name=&email=imie.nazwisko%40example.com", "empty name"),
+        ("name=&email=", "empty both name and email"),
+    ];
+
+    for (body, description) in test_cases {
+        // when
+        let response = app.post_subscriptions(body.into()).await;
+        let content_length = response.content_length().unwrap();
+
+        // then
+        assert_ge!(
+            content_length,
+            0,
+            "The API did not return validation error description when the payload was {}",
             description
         );
     }

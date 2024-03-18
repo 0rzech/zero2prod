@@ -237,8 +237,10 @@ impl IntoResponse for SubscribeError {
         tracing::error!("{:#?}", self);
 
         match self {
-            Self::ValidationError(_) => StatusCode::BAD_REQUEST.into_response(),
-            Self::SubscriptionAlreadyConfirmed => StatusCode::UNPROCESSABLE_ENTITY.into_response(),
+            Self::ValidationError(_) => (StatusCode::BAD_REQUEST, self.to_string()).into_response(),
+            Self::SubscriptionAlreadyConfirmed => {
+                (StatusCode::UNPROCESSABLE_ENTITY, self.to_string()).into_response()
+            }
             Self::UnexpectedError(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
         }
     }

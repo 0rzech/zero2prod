@@ -42,6 +42,22 @@ async fn confirmation_with_invalid_token_is_rejected_with_a_400() {
 }
 
 #[tokio::test]
+async fn confirmation_with_invalid_token_returns_validation_error_description() {
+    // given
+    let app = TestApp::spawn().await;
+
+    // when
+    let response = app.confirm_subscription("a").await;
+    let body = response.text().await.unwrap();
+
+    // then
+    assert!(
+        body.to_lowercase().contains("invalid"),
+        "'{body}' response body did not contain 'invalid' word"
+    );
+}
+
+#[tokio::test]
 async fn the_link_returned_by_subscribe_returns_200_if_called() {
     // given
     let app = TestApp::spawn().await;
