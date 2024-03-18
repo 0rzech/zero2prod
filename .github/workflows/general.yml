@@ -96,7 +96,7 @@ jobs:
           sudo apt-get install --no-install-recommends -y libpq-dev
           SKIP_PODMAN=true ./scripts/init_db.sh
       - name: Linting
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --all-targets -- -D warnings
 
   coverage:
     name: Code coverage

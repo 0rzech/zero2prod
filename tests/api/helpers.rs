@@ -23,7 +23,7 @@ static TRACING: Lazy<()> = Lazy::new(|| {
     }
 });
 
-static FAILED_TO_EXECUTE_REQUEST: &'static str = "Failed to execute request";
+static FAILED_TO_EXECUTE_REQUEST: &str = "Failed to execute request";
 
 pub struct TestApp {
     pub address: SocketAddr,
@@ -107,15 +107,15 @@ impl TestApp {
             assert_eq!(links.len(), 1);
 
             let raw_link = links[0].as_str();
-            let mut link = reqwest::Url::from_str(&raw_link).unwrap();
+            let mut link = reqwest::Url::from_str(raw_link).unwrap();
             assert_some_eq!(link.host_str(), "localhost");
 
             link.set_port(Some(self.address.port())).unwrap();
             link
         };
 
-        let html = get_link(&body["HtmlBody"].as_str().unwrap());
-        let plain_text = get_link(&body["TextBody"].as_str().unwrap());
+        let html = get_link(body["HtmlBody"].as_str().unwrap());
+        let plain_text = get_link(body["TextBody"].as_str().unwrap());
 
         ConfirmationLinks { html, plain_text }
     }
@@ -134,7 +134,7 @@ async fn configure_database(configuration: &DatabaseSettings) -> PgPool {
         .await
         .expect("Failed to create database");
 
-    let pool = get_connection_pool(&configuration);
+    let pool = get_connection_pool(configuration);
 
     sqlx::migrate!("./migrations")
         .run(&pool)

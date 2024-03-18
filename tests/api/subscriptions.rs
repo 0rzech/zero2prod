@@ -153,7 +153,7 @@ async fn subscribe_sends_a_confirmation_email_on_repeated_calls() {
     for i in 1..4 {
         // when
         let body = format!("name=Imi%C4%99%20Nazwisko%20{i}&email=imie.nazwisko.{i}%40example.com");
-        let response = app.post_subscriptions(body.into()).await;
+        let response = app.post_subscriptions(body).await;
 
         // then
         assert_eq!(
