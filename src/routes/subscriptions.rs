@@ -1,8 +1,7 @@
 use crate::{
     app_state::AppState,
     domain::{
-        NewSubscriber, SubscriberEmail, SubscriberName, Subscription, SubscriptionStatus,
-        SubscriptionToken,
+        NewSubscriber, SubscriberEmail, SubscriberName, SubscriptionStatus, SubscriptionToken,
     },
     email_client::EmailClient,
 };
@@ -86,7 +85,8 @@ async fn get_subscription(
 ) -> Result<Option<Subscription>, anyhow::Error> {
     let query = sqlx::query!(
         r#"
-        SELECT * FROM subscriptions
+        SELECT id, status
+        FROM subscriptions
         WHERE email = $1
         "#,
         email.as_ref()
@@ -208,6 +208,13 @@ impl TryFrom<FormData> for NewSubscriber {
         let name = SubscriberName::parse(value.name)?;
         Ok(NewSubscriber { email, name })
     }
+}
+
+#[derive(FromRow)]
+struct Subscription {
+    id: Uuid,
+    #[sqlx(try_from = "String")]
+    status: SubscriptionStatus,
 }
 
 #[derive(Template)]
