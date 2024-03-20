@@ -201,7 +201,8 @@ async fn subscribe_sends_a_confirmation_email_with_a_link() {
     app.post_subscriptions(body.into()).await;
 
     // then
-    let links = app.get_confirmation_links_from_email_request().await;
+    let request = &app.email_server.received_requests().await.unwrap()[0];
+    let links = app.get_confirmation_links(request);
     let re = Regex::new(format!(r"\?subscription_token={}$", token_regex()).as_str()).unwrap();
 
     assert_eq!(links.html, links.plain_text);

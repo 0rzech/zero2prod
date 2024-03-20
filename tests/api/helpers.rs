@@ -95,8 +95,16 @@ impl TestApp {
             .expect(FAILED_TO_EXECUTE_REQUEST)
     }
 
-    pub async fn get_confirmation_links_from_email_request(&self) -> ConfirmationLinks {
-        let request = &self.email_server.received_requests().await.unwrap()[0];
+    pub async fn post_newsletters(&self, body: &serde_json::Value) -> reqwest::Response {
+        self.client
+            .post(self.url("/newsletters"))
+            .json(body)
+            .send()
+            .await
+            .expect("Failed to execute request")
+    }
+
+    pub fn get_confirmation_links(&self, request: &wiremock::Request) -> ConfirmationLinks {
         let body: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
 
         let get_link = |s: &str| {

@@ -71,7 +71,7 @@ async fn the_link_returned_by_subscribe_returns_200_if_called() {
 
     app.post_subscriptions(body.into()).await;
 
-    let links = app.get_confirmation_links_from_email_request().await;
+    let links = app.get_confirmation_links(&app.email_server.received_requests().await.unwrap()[0]);
     assert_some_eq!(links.html.host_str(), "localhost");
 
     // when
@@ -94,7 +94,8 @@ async fn clicking_on_the_confirmation_link_confirms_a_subscriber() {
         .await;
 
     app.post_subscriptions(body.into()).await;
-    let links = app.get_confirmation_links_from_email_request().await;
+
+    let links = app.get_confirmation_links(&app.email_server.received_requests().await.unwrap()[0]);
 
     // when
     reqwest::get(links.html)
@@ -128,7 +129,7 @@ async fn subsequent_clicks_on_the_confirmation_link_are_rejected_with_a_401() {
 
     app.post_subscriptions(body.into()).await;
 
-    let links = app.get_confirmation_links_from_email_request().await;
+    let links = app.get_confirmation_links(&app.email_server.received_requests().await.unwrap()[0]);
     assert_some_eq!(links.html.host_str(), "localhost");
 
     // when
@@ -153,7 +154,7 @@ async fn clicking_on_the_confirmation_link_deletes_subscription_tokens() {
 
     app.post_subscriptions(body.into()).await;
 
-    let links = app.get_confirmation_links_from_email_request().await;
+    let links = app.get_confirmation_links(&app.email_server.received_requests().await.unwrap()[0]);
     assert_some_eq!(links.html.host_str(), "localhost");
 
     // when

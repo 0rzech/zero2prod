@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use std::fmt::Display;
 use validator::validate_email;
 
 #[derive(Clone, Debug, Deserialize)]
@@ -25,6 +26,12 @@ impl TryFrom<String> for SubscriberEmail {
 
     fn try_from(s: String) -> Result<Self, Self::Error> {
         Self::parse(s)
+    }
+}
+
+impl Display for SubscriberEmail {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
     }
 }
 
