@@ -1,4 +1,4 @@
-FROM docker.io/lukemathwalker/cargo-chef:0.1.63-rust-1.76.0-bookworm as chef
+FROM docker.io/lukemathwalker/cargo-chef:0.1.66-rust-1.77.0-bookworm as chef
 LABEL stage=build
 
 RUN apt-get update \
