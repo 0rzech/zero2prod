@@ -1,5 +1,6 @@
 use crate::helpers::{ConfirmationLinks, TestApp};
 use serde_json::json;
+use uuid::Uuid;
 use wiremock::{
     matchers::{any, method, path},
     Mock, ResponseTemplate,
@@ -92,6 +93,89 @@ async fn newsletters_returns_400_for_invalid_data() {
             error_message
         );
     }
+}
+
+#[tokio::test]
+async fn requests_missing_authorization_are_rejected() {
+    // given
+    let app = TestApp::spawn().await;
+    let newsletter_request_body = json!({
+        "title": "Newsletter Title",
+        "content": {
+            "text": "Newsletter body as plain text.",
+            "html": "<p>Newsletter body as html.</p>",
+        }
+    });
+
+    // when
+    let response = app.post_newsletters_no_auth(&newsletter_request_body).await;
+
+    // then
+    assert_eq!(response.status(), 401);
+    assert_eq!(
+        response.headers()["WWW-Authenticate"],
+        r#"Basic realm="publish""#
+    );
+}
+
+#[tokio::test]
+async fn non_existing_user_is_rejected() {
+    // given
+    let app = TestApp::spawn().await;
+    let newsletter_request_body = json!({
+        "title": "Newsletter Title",
+        "content": {
+            "text": "Newsletter body as plain text.",
+            "html": "<p>Newsletter body as html.</p>",
+        }
+    });
+    let username = Uuid::new_v4().to_string();
+
+    // when
+    let response = app
+        .post_newsletters_with_credentials(
+            &newsletter_request_body,
+            &username,
+            &app.test_user.password,
+        )
+        .await;
+
+    // then
+    assert_eq!(response.status(), 401);
+    assert_eq!(
+        response.headers()["WWW-Authenticate"],
+        r#"Basic realm="publish""#
+    );
+}
+
+#[tokio::test]
+async fn invalid_password_is_rejected() {
+    // given
+    let app = TestApp::spawn().await;
+    let newsletter_request_body = json!({
+        "title": "Newsletter Title",
+        "content": {
+            "text": "Newsletter body as plain text.",
+            "html": "<p>Newsletter body as html.</p>",
+        }
+    });
+    let password = Uuid::new_v4().to_string();
+
+    // when
+    let response = app
+        .post_newsletters_with_credentials(
+            &newsletter_request_body,
+            &app.test_user.username,
+            &password,
+        )
+        .await;
+
+    // then
+    assert_eq!(response.status(), 401);
+    assert_eq!(
+        response.headers()["WWW-Authenticate"],
+        r#"Basic realm="publish""#
+    );
 }
 
 async fn create_unfonfirmed_subscriber(app: &TestApp) -> ConfirmationLinks {

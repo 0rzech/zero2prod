@@ -1,5 +1,6 @@
 use crate::request_id::from_x_request_id;
 use axum::{body::Body, http::Request};
+use tokio::task::{spawn_blocking, JoinHandle};
 use tracing::{subscriber::set_global_default, Span, Subscriber};
 use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
 use tracing_log::LogTracer;
@@ -34,4 +35,13 @@ pub fn request_span(request: &Request<Body>) -> Span {
         method = %request.method(),
         uri = %request.uri(),
     )
+}
+
+pub fn spawn_blocking_with_tracing<F, R>(f: F) -> JoinHandle<R>
+where
+    F: FnOnce() -> R + Send + 'static,
+    R: Send + 'static,
+{
+    let current_span = tracing::Span::current();
+    spawn_blocking(move || current_span.in_scope(f))
 }

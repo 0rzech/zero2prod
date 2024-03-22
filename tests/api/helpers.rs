@@ -1,3 +1,4 @@
+use argon2::{password_hash::SaltString, Algorithm, Argon2, Params, PasswordHasher, Version};
 use claims::assert_some_eq;
 use linkify::{LinkFinder, LinkKind};
 use once_cell::sync::Lazy;
@@ -29,6 +30,7 @@ pub struct TestApp {
     pub address: SocketAddr,
     pub db_pool: PgPool,
     pub email_server: MockServer,
+    pub test_user: TestUser,
     client: reqwest::Client,
 }
 
@@ -47,12 +49,16 @@ impl TestApp {
         let app = Application::build(config).await;
         let address = app.local_addr();
 
+        let test_user = TestUser::generate();
+        test_user.store(&db_pool).await;
+
         tokio::spawn(app.run_until_stopped());
 
         Self {
             address,
             db_pool,
             email_server,
+            test_user,
             client: reqwest::Client::new(),
         }
     }
@@ -95,7 +101,31 @@ impl TestApp {
             .expect(FAILED_TO_EXECUTE_REQUEST)
     }
 
+    pub async fn post_newsletters_with_credentials(
+        &self,
+        body: &serde_json::Value,
+        username: &str,
+        password: &str,
+    ) -> reqwest::Response {
+        self.client
+            .post(self.url("/newsletters"))
+            .basic_auth(username, Some(password))
+            .json(body)
+            .send()
+            .await
+            .expect("Failed to execute request")
+    }
+
     pub async fn post_newsletters(&self, body: &serde_json::Value) -> reqwest::Response {
+        self.post_newsletters_with_credentials(
+            body,
+            &self.test_user.username,
+            &self.test_user.password,
+        )
+        .await
+    }
+
+    pub async fn post_newsletters_no_auth(&self, body: &serde_json::Value) -> reqwest::Response {
         self.client
             .post(self.url("/newsletters"))
             .json(body)
@@ -150,6 +180,47 @@ async fn configure_database(configuration: &DatabaseSettings) -> PgPool {
         .expect("Failed to migrate database");
 
     pool
+}
+
+pub struct TestUser {
+    pub user_id: Uuid,
+    pub username: String,
+    pub password: String,
+}
+
+impl TestUser {
+    fn generate() -> Self {
+        Self {
+            user_id: Uuid::new_v4(),
+            username: Uuid::new_v4().to_string(),
+            password: Uuid::new_v4().to_string(),
+        }
+    }
+
+    async fn store(&self, db_pool: &PgPool) {
+        let salt = SaltString::generate(&mut rand::thread_rng());
+        let password_hash = Argon2::new(
+            Algorithm::Argon2id,
+            Version::V0x13,
+            Params::new(15000, 2, 1, None).unwrap(),
+        )
+        .hash_password(self.password.as_bytes(), &salt)
+        .unwrap()
+        .to_string();
+
+        sqlx::query!(
+            r#"
+            INSERT INTO users (user_id, username, password_hash)
+            VALUES ($1, $2, $3)
+            "#,
+            self.user_id,
+            self.username,
+            password_hash,
+        )
+        .execute(db_pool)
+        .await
+        .expect("Failed to store test user");
+    }
 }
 
 pub struct ConfirmationLinks {
