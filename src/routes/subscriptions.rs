@@ -218,13 +218,13 @@ struct Subscription {
 }
 
 #[derive(Template)]
-#[template(path = "welcome.html")]
+#[template(path = "email/welcome.html")]
 struct HtmlBodyTemplate<'a> {
     confirmation_link: &'a str,
 }
 
 #[derive(Template)]
-#[template(path = "welcome.txt")]
+#[template(path = "email/welcome.txt")]
 struct PlainTextBodyTemplate<'a> {
     confirmation_link: &'a str,
 }

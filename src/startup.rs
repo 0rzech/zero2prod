@@ -3,7 +3,7 @@ use crate::{
     configuration::{DatabaseSettings, Settings},
     email_client::EmailClient,
     request_id::RequestUuid,
-    routes::{health_check, newsletters, subscriptions, subscriptions_confirm},
+    routes::{health_check, home, newsletters, subscriptions, subscriptions_confirm},
     telemetry::request_span,
 };
 use axum::{http::Uri, serve::Serve, Router};
@@ -85,6 +85,7 @@ async fn run(
         .merge(subscriptions::router())
         .merge(subscriptions_confirm::router())
         .merge(newsletters::router())
+        .merge(home::router())
         .with_state(app_state)
         .layer(
             ServiceBuilder::new()
