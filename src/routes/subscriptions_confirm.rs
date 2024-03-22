@@ -56,7 +56,7 @@ struct Parameters {
 }
 
 #[tracing::instrument(
-    name = "Getting subscriber_id from token",
+    name = "Get subscriber_id from token",
     skip(transaction, subscription_token)
 )]
 async fn get_subscriber_id_from_token(
@@ -86,7 +86,7 @@ async fn get_subscriber_id_from_token(
 }
 
 #[tracing::instrument(
-    name = "Marking subscriber as confirmed",
+    name = "Mark subscriber as confirmed",
     skip(transaction, subscriber_id)
 )]
 async fn confirm_subscriber(
@@ -111,7 +111,7 @@ async fn confirm_subscriber(
 }
 
 #[tracing::instrument(
-    name = "Deleting subscribe confirmation tokens",
+    name = "Delete subscription confirmation tokens",
     skip(transaction, subscriber_id)
 )]
 async fn delete_confirmation_tokens(

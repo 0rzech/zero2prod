@@ -23,7 +23,7 @@ pub fn router() -> Router<AppState> {
 }
 
 #[tracing::instrument(
-    name = "Publishing newsletter",
+    name = "Publish newsletter",
     skip(headers, app_state, body),
     fields(username=tracing::field::Empty, user_id=tracing::field::Empty)
 )]
@@ -63,7 +63,7 @@ async fn publish_newsletter(
     Ok(())
 }
 
-#[tracing::instrument(name = "Extracting basic auth credentials", skip(headers))]
+#[tracing::instrument(name = "Extract basic auth credentials", skip(headers))]
 fn basic_authentication(headers: &HeaderMap) -> Result<Credentials, anyhow::Error> {
     let base64encoded_segment = headers
         .get("Authorization")
@@ -98,7 +98,7 @@ fn basic_authentication(headers: &HeaderMap) -> Result<Credentials, anyhow::Erro
     })
 }
 
-#[tracing::instrument(name = "Validating credentials", skip(db_pool, credentials))]
+#[tracing::instrument(name = "Validate credentials", skip(db_pool, credentials))]
 async fn validate_credentials(
     db_pool: &PgPool,
     credentials: Credentials,
@@ -127,7 +127,7 @@ async fn validate_credentials(
     user_id.ok_or_else(|| PublishError::AuthError(anyhow!("Unknown username")))
 }
 
-#[tracing::instrument(name = "Getting stored credentials", skip(db_pool, username))]
+#[tracing::instrument(name = "Get stored credentials", skip(db_pool, username))]
 async fn get_stored_credentials(
     db_pool: &PgPool,
     username: String,
@@ -149,7 +149,7 @@ async fn get_stored_credentials(
 }
 
 #[tracing::instrument(
-    name = "Verifying password hash",
+    name = "Verify password hash",
     skip(expected_password_hash, password_candidate)
 )]
 fn verify_password_hash(
@@ -168,7 +168,7 @@ fn verify_password_hash(
         .map_err(PublishError::AuthError)
 }
 
-#[tracing::instrument(name = "Getting confirmed subscribers", skip(db_pool))]
+#[tracing::instrument(name = "Get confirmed subscribers", skip(db_pool))]
 async fn get_confirmed_subscribers(
     db_pool: &PgPool,
 ) -> Result<Vec<Result<ConfirmedSubscriber, anyhow::Error>>, anyhow::Error> {

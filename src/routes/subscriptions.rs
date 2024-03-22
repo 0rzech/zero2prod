@@ -26,7 +26,7 @@ pub fn router() -> Router<AppState> {
 }
 
 #[tracing::instrument(
-    name = "Adding new subscriber",
+    name = "Add new subscriber",
     skip(app_state, form),
     fields(
         subscriber_email = %form.email,
@@ -76,7 +76,7 @@ async fn subscribe(
 }
 
 #[tracing::instrument(
-    name = "Getting subscriber details from the database",
+    name = "Get subscriber details from the database",
     skip(transaction, email)
 )]
 async fn get_subscription(
@@ -107,7 +107,7 @@ async fn get_subscription(
 }
 
 #[tracing::instrument(
-    name = "Saving new subscriber details in the database",
+    name = "Save new subscriber details in the database",
     skip(transaction, new_subscriber)
 )]
 async fn insert_subscriber(
@@ -136,7 +136,7 @@ async fn insert_subscriber(
 }
 
 #[tracing::instrument(
-    name = "Storing subscription token in the database",
+    name = "Store subscription token in the database",
     skip(transaction, subscription_token)
 )]
 async fn store_token(
@@ -162,7 +162,7 @@ async fn store_token(
 }
 
 #[tracing::instrument(
-    name = "Sending confirmation email to a new subscriber",
+    name = "Send confirmation email to a new subscriber",
     skip(email_client, new_subscriber, base_url, subscription_token)
 )]
 async fn send_confirmation_email(
