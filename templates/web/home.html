@@ -1,17 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
 
-<head>
-    <meta http-equiv="content-type" content="text/html; charset=utf-8">
-    <title>{{ title }}</title>
-</head>
-
-<body>
-    {%- if let Some(username) = username %}
-    <p>Welcome to our newsletter, {{ username }}!</p>
-    {%- else %}
-    <p>Welcome to our newsletter!</p>
-    {%- endif %}
-</body>
-
-</html>
+{% block content %}
+{%- if let Some(username) = username %}
+<p>Welcome to our newsletter, {{ username }}!</p>
+{% else %}
+<p>Welcome to our newsletter!</p>
+{% endif -%}
+{% endblock %}

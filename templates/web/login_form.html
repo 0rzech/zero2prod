@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block content %}
+{%- if let Some(message) = error_message %}
+<p><i>{{ message }}</i></p>
+{%- endif %}
+
+<form action={{ action }} method="post">
+    <label>
+        {{ username_label }}
+        <input type="text" placeholder="{{ username_placeholder }}" name="username">
+    </label>
+
+    <label>
+        {{ password_label }}
+        <input type="password" placeholder="{{ password_placeholder }}" name="password">
+    </label>
+
+    <button type="submit">{{ submit_label }}</button>
+</form>
+{% endblock %}

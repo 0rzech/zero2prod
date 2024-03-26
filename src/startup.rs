@@ -3,10 +3,11 @@ use crate::{
     configuration::{DatabaseSettings, Settings},
     email_client::EmailClient,
     request_id::RequestUuid,
-    routes::{health_check, home, newsletters, subscriptions, subscriptions_confirm},
+    routes::{health_check, home, login, newsletters, subscriptions, subscriptions_confirm},
     telemetry::request_span,
 };
 use axum::{http::Uri, serve::Serve, Router};
+use secrecy::Secret;
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use std::{net::SocketAddr, str::FromStr};
 use tokio::net::TcpListener;
@@ -49,7 +50,14 @@ impl Application {
             .local_addr()
             .expect("Failed to get local address from the listener");
 
-        let server = run(listener, db_pool, email_client, config.application.base_url).await;
+        let server = run(
+            listener,
+            db_pool,
+            email_client,
+            config.application.base_url,
+            config.application.hmac_secret,
+        )
+        .await;
 
         Self { local_addr, server }
     }
@@ -73,11 +81,13 @@ async fn run(
     db_pool: PgPool,
     email_client: EmailClient,
     base_url: String,
+    hmac_secret: Secret<String>,
 ) -> Serve<Router, Router> {
     let app_state = AppState {
         db_pool,
         email_client,
         base_url: Uri::from_str(&base_url).expect("Failed to parse base url"),
+        hmac_secret,
     };
 
     let app = Router::new()
@@ -86,6 +96,7 @@ async fn run(
         .merge(subscriptions_confirm::router())
         .merge(newsletters::router())
         .merge(home::router())
+        .merge(login::router())
         .with_state(app_state)
         .layer(
             ServiceBuilder::new()
