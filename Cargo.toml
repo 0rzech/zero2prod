@@ -54,3 +54,6 @@ proptest = "1.4.0"
 serde_json = "1.0.114"
 tokio = { version = "1.36.0", features = ["macros", "rt"] }
 wiremock = "0.6.0"
+
+[patch.crates-io]
+config = { git = "https://github.com/mehcode/config-rs", rev = "e3c1d0b452639478662a44f15ef6d5b6d969bf9b" }
