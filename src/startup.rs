@@ -7,7 +7,8 @@ use crate::{
     telemetry::request_span,
 };
 use axum::{http::Uri, serve::Serve, Router};
-use secrecy::Secret;
+use axum_extra::extract::cookie::Key;
+use secrecy::{ExposeSecret, Secret};
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use std::{net::SocketAddr, str::FromStr};
 use tokio::net::TcpListener;
@@ -87,7 +88,7 @@ async fn run(
         db_pool,
         email_client,
         base_url: Uri::from_str(&base_url).expect("Failed to parse base url"),
-        hmac_secret,
+        hmac_secret: Key::from(hmac_secret.expose_secret().as_bytes()),
     };
 
     let app = Router::new()

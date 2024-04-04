@@ -2,6 +2,7 @@ use argon2::{password_hash::SaltString, Algorithm, Argon2, Params, PasswordHashe
 use claims::assert_some_eq;
 use linkify::{LinkFinder, LinkKind};
 use once_cell::sync::Lazy;
+use reqwest::{redirect, Response};
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::{net::SocketAddr, str::FromStr};
 use uuid::Uuid;
@@ -52,6 +53,12 @@ impl TestApp {
         let test_user = TestUser::generate();
         test_user.store(&db_pool).await;
 
+        let client = reqwest::Client::builder()
+            .redirect(redirect::Policy::none())
+            .cookie_store(true)
+            .build()
+            .unwrap();
+
         tokio::spawn(app.run_until_stopped());
 
         Self {
@@ -59,7 +66,7 @@ impl TestApp {
             db_pool,
             email_server,
             test_user,
-            client: reqwest::Client::new(),
+            client,
         }
     }
 
@@ -156,6 +163,29 @@ impl TestApp {
         let plain_text = get_link(body["TextBody"].as_str().unwrap());
 
         ConfirmationLinks { html, plain_text }
+    }
+
+    pub async fn post_login<Body>(&self, body: &Body) -> Response
+    where
+        Body: serde::Serialize,
+    {
+        self.client
+            .post(self.url("/login"))
+            .form(body)
+            .send()
+            .await
+            .expect("Failed to execute request")
+    }
+
+    pub async fn get_login_html(&self) -> String {
+        self.client
+            .get(self.url("/login"))
+            .send()
+            .await
+            .expect("Failed to execute request")
+            .text()
+            .await
+            .unwrap()
     }
 
     fn url(&self, endpoint: &str) -> String {

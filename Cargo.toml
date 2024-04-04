@@ -18,19 +18,16 @@ argon2 = { version = "0.5.3", features = ["std"] }
 askama = { version = "0.12.1", features = ["with-axum"], default-features = false }
 askama_axum = { version = "0.4.0", default-features = false }
 axum = "0.7.4"
+axum-extra = { version = "0.9.3", features = ["cookie-signed"] }
 base64 = "0.22.0"
 config = "0.14.0"
-hex = "0.4.3"
-hmac = { version = "0.12.1", features = ["std"] }
-htmlescape = "0.3.1"
 once_cell = "1.19.0"
 rand = "0.8.5"
 regex = "1.10.3"
-reqwest = { version = "0.11.24", features = ["json"], default-features = false }
+reqwest = { version = "0.11.24", features = ["cookies", "json"], default-features = false }
 secrecy = { version = "0.8.0", features = ["serde"] }
 serde = { version = "1.0.196", features = ["derive"] }
 serde-aux = { version = "4.4.0", default-features = false }
-sha2 = "0.10.8"
 sqlx = { version = "0.7.3", features = ["macros", "migrate", "postgres", "time", "runtime-tokio", "tls-native-tls", "uuid"], default-features = false }
 thiserror = "1.0.58"
 time = { version = "0.3.34", features = ["macros", "serde"] }
@@ -42,7 +39,6 @@ tracing-bunyan-formatter = "0.3.9"
 tracing-log = "0.2.0"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 unicode-segmentation = "1.11.0"
-urlencoding = "2.1.3"
 uuid = { version = "1.7.0", features = ["v4"] }
 validator = "0.16.1"
 
