@@ -35,7 +35,7 @@ if [[ ${SKIP_PODMAN:=false} == false ]]; then
     --env POSTGRES_USER="${db_user}" \
     --env POSTGRES_PASSWORD="${db_password}" \
     --env POSTGRES_DB="${db_name}" \
-    postgres \
+    docker.io/library/postgres:latest \
     postgres -N 1000
 
   sleep 5

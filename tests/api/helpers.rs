@@ -9,7 +9,7 @@ use uuid::Uuid;
 use wiremock::MockServer;
 use zero2prod::{
     configuration::{get_configuration, DatabaseSettings},
-    startup::{get_connection_pool, Application},
+    startup::{get_pg_connection_pool, Application},
     telemetry::{get_subscriber, init_subscriber},
 };
 
@@ -202,7 +202,7 @@ async fn configure_database(configuration: &DatabaseSettings) -> PgPool {
         .await
         .expect("Failed to create database");
 
-    let pool = get_connection_pool(configuration);
+    let pool = get_pg_connection_pool(configuration);
 
     sqlx::migrate!("./migrations")
         .run(&pool)

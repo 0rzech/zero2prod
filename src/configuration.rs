@@ -23,6 +23,7 @@ pub struct ApplicationSettings {
     pub port: u16,
     pub base_url: String,
     pub hmac_secret: Secret<String>,
+    pub redis_uri: Secret<String>,
 }
 
 #[derive(Deserialize)]
