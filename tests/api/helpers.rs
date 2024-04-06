@@ -188,6 +188,18 @@ impl TestApp {
             .unwrap()
     }
 
+    pub async fn get_admin_dashboard(&self) -> Response {
+        self.client
+            .get(self.url("/admin/dashboard"))
+            .send()
+            .await
+            .expect("Failed to execute request")
+    }
+
+    pub async fn get_admin_dashboard_html(&self) -> String {
+        self.get_admin_dashboard().await.text().await.unwrap()
+    }
+
     fn url(&self, endpoint: &str) -> String {
         format!("http://{}{endpoint}", self.address)
     }

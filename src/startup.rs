@@ -3,7 +3,7 @@ use crate::{
     configuration::{ApplicationSettings, DatabaseSettings, Settings},
     email_client::EmailClient,
     request_id::RequestUuid,
-    routes::{health_check, home, login, newsletters, subscriptions, subscriptions_confirm},
+    routes::{admin, health_check, home, login, newsletters, subscriptions, subscriptions_confirm},
     telemetry::request_span,
 };
 use anyhow::anyhow;
@@ -134,6 +134,7 @@ async fn run(
         .merge(newsletters::router())
         .merge(home::router())
         .merge(login::router())
+        .merge(admin::router())
         .with_state(app_state)
         .layer(
             SessionManagerLayer::new(RedisStore::new(redis_pool))
