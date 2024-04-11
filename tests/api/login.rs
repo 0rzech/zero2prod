@@ -1,4 +1,4 @@
-use crate::helpers::TestApp;
+use crate::helpers::{assert_redirect_to, TestApp};
 use serde_json::json;
 use uuid::Uuid;
 
@@ -13,14 +13,12 @@ async fn successful_login_redirects_to_admin_dashboard() {
 
     // when
     let response = app.post_login(&login_body).await;
-    assert_eq!(response.status(), 303);
-    assert_eq!(
-        response.headers().get("Location").unwrap(),
-        "/admin/dashboard"
-    );
+
+    // then
+    assert_redirect_to(&response, "/admin/dashboard");
 
     let html_page = app.get_admin_dashboard_html().await;
-    assert!(html_page.contains(&format!("Welcome {}", app.test_user.username)));
+    assert!(html_page.contains(&format!("Welcome, {}!", app.test_user.username)));
 }
 
 #[tokio::test]
@@ -36,8 +34,7 @@ async fn an_error_flash_message_is_sent_on_failure() {
     let response = app.post_login(&login_body).await;
 
     // then
-    assert_eq!(response.status(), 303);
-    assert_eq!(response.headers().get("Location").unwrap(), "/login");
+    assert_redirect_to(&response, "/login");
 }
 
 #[tokio::test]

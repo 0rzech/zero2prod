@@ -1,7 +1,7 @@
 use crate::{
     app_state::AppState,
     authentication::{validate_credentials, AuthError, Credentials},
-    session_state::TypedSession,
+    session::state::TypedSession,
 };
 use axum::{
     extract::State,
@@ -9,21 +9,18 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
     Form,
 };
-use axum_extra::extract::{
-    cookie::{Cookie, SameSite},
-    SignedCookieJar,
-};
+use axum_messages::Messages;
 use secrecy::Secret;
 use serde::Deserialize;
 
 #[tracing::instrument(
-    skip(app_state, form, session, jar),
+    skip(app_state, session, messages, form),
     fields(username = tracing::field::Empty, user_id = tracing::field::Empty)
 )]
 pub(super) async fn login(
     State(app_state): State<AppState>,
     session: TypedSession,
-    jar: SignedCookieJar,
+    messages: Messages,
     Form(form): Form<FormData>,
 ) -> Result<Redirect, LoginErrorResponse> {
     tracing::Span::current().record("username", &tracing::field::display(&form.username));
@@ -40,7 +37,10 @@ pub(super) async fn login(
         Ok(user_id) => user_id,
         Err(e) => match e {
             AuthError::InvalidCredentials(_) => {
-                return Err(LoginErrorResponse::new_auth_with_redirect(e.into(), jar));
+                return Err(LoginErrorResponse::new_auth_with_redirect(
+                    e.into(),
+                    messages,
+                ));
             }
             AuthError::UnexpectedError(_) => {
                 return Err(LoginErrorResponse::new_unexpected(e.into()));
@@ -52,15 +52,14 @@ pub(super) async fn login(
 
     if let Err(e) = session.cycle_id().await {
         return Err(LoginErrorResponse::new_unexpected_with_redirect(
-            e.into(),
-            jar,
+            e, messages,
         ));
     }
 
     session
         .insert_user_id(user_id)
         .await
-        .map_err(|e| LoginErrorResponse::new_unexpected_with_redirect(e.into(), jar))?;
+        .map_err(|e| LoginErrorResponse::new_unexpected_with_redirect(e, messages))?;
 
     Ok(Redirect::to("/admin/dashboard"))
 }
@@ -73,25 +72,29 @@ pub(super) struct FormData {
 
 pub(super) struct LoginErrorResponse {
     error: LoginError,
-    jar: Option<SignedCookieJar>,
+    messages: Option<Messages>,
 }
 
 impl LoginErrorResponse {
     fn new_unexpected(error: anyhow::Error) -> Self {
-        let error = LoginError::UnexpectedError(error);
-        Self { error, jar: None }
+        Self {
+            error: LoginError::UnexpectedError(error),
+            messages: None,
+        }
     }
 
-    fn new_auth_with_redirect(error: anyhow::Error, jar: SignedCookieJar) -> Self {
-        let error = LoginError::AuthError(error);
-        let jar = Some(jar.add(&error));
-        Self { error, jar }
+    fn new_auth_with_redirect(error: anyhow::Error, messages: Messages) -> Self {
+        Self {
+            error: LoginError::AuthError(error),
+            messages: Some(messages),
+        }
     }
 
-    fn new_unexpected_with_redirect(error: anyhow::Error, jar: SignedCookieJar) -> Self {
-        let error = LoginError::UnexpectedError(error);
-        let jar = Some(jar.add(&error));
-        Self { error, jar }
+    fn new_unexpected_with_redirect(error: anyhow::Error, messages: Messages) -> Self {
+        Self {
+            error: LoginError::UnexpectedError(error),
+            messages: Some(messages),
+        }
     }
 }
 
@@ -99,8 +102,11 @@ impl IntoResponse for LoginErrorResponse {
     fn into_response(self) -> Response {
         tracing::error!("{:#?}", self.error);
 
-        match (self.error, self.jar) {
-            (_, Some(jar)) => (jar, Redirect::to("/login")).into_response(),
+        match (self.error, self.messages) {
+            (error, Some(messages)) => {
+                messages.error(error.to_string());
+                Redirect::to("/login").into_response()
+            }
             (LoginError::AuthError(_), None) => StatusCode::UNAUTHORIZED.into_response(),
             (LoginError::UnexpectedError(_), None) => {
                 StatusCode::INTERNAL_SERVER_ERROR.into_response()
@@ -115,13 +121,4 @@ enum LoginError {
     AuthError(#[source] anyhow::Error),
     #[error("Something went wrong")]
     UnexpectedError(#[from] anyhow::Error),
-}
-
-impl From<&LoginError> for Cookie<'static> {
-    fn from(value: &LoginError) -> Self {
-        Cookie::build(("_flash", value.to_string()))
-            .http_only(true)
-            .same_site(SameSite::Strict)
-            .build()
-    }
 }

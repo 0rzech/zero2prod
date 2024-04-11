@@ -1,5 +1,14 @@
 {% extends "base.html" %}
 
 {% block content %}
-<p>Welcome {{ username }}!</p>
+<p>{{ welcome }}, {{ username }}!</p>
+<p>{{ available_actions }}:</p>
+<ol>
+    <li><a href="/admin/password">{{ change_password }}</li>
+    <li>
+        <form name="logoutForm" action="/admin/logout" method="post">
+            <input type="submit" value="{{ logout }}">
+        </form>
+    </li>
+</ol>
 {% endblock %}

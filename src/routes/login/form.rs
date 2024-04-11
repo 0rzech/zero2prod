@@ -1,25 +1,20 @@
 use askama_axum::Template;
-use axum_extra::extract::{cookie::Cookie, SignedCookieJar};
+use axum_messages::Messages;
 
-#[tracing::instrument(skip(jar))]
-pub(super) async fn login_form(jar: SignedCookieJar) -> (SignedCookieJar, LoginForm<'static>) {
-    const FLASH: &str = "_flash";
+#[tracing::instrument(skip(messages))]
+pub(super) async fn login_form(messages: Messages) -> LoginForm<'static> {
+    let flashes = messages.map(|m| m.message).collect();
 
-    let flash = jar.get(FLASH).map(|c| c.value().into());
-
-    (
-        jar.remove(Cookie::from(FLASH)),
-        LoginForm {
-            title: "Login",
-            username_label: "Username",
-            username_placeholder: "Enter username",
-            password_label: "Password",
-            password_placeholder: "Enter password",
-            submit_label: "Login",
-            flash,
-            action: "/login",
-        },
-    )
+    LoginForm {
+        title: "Login",
+        username_label: "Username",
+        username_placeholder: "Enter username",
+        password_label: "Password",
+        password_placeholder: "Enter password",
+        submit_label: "Login",
+        flashes,
+        action: "/login",
+    }
 }
 
 #[derive(Template)]
@@ -31,6 +26,6 @@ pub(super) struct LoginForm<'a> {
     password_label: &'a str,
     password_placeholder: &'a str,
     submit_label: &'a str,
-    flash: Option<String>,
     action: &'a str,
+    flashes: Vec<String>,
 }

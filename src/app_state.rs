@@ -1,7 +1,7 @@
 use crate::email_client::EmailClient;
 use axum::{extract::FromRef, http::Uri};
-use axum_extra::extract::cookie::Key;
 use sqlx::PgPool;
+use tower_sessions::cookie::Key;
 
 #[derive(Clone)]
 pub struct AppState {

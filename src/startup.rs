@@ -4,11 +4,12 @@ use crate::{
     email_client::EmailClient,
     request_id::RequestUuid,
     routes::{admin, health_check, home, login, newsletters, subscriptions, subscriptions_confirm},
+    session::middleware::AuthorizedSessionLayer,
     telemetry::request_span,
 };
 use anyhow::anyhow;
 use axum::{http::Uri, serve::Serve, Router};
-use axum_extra::extract::cookie::Key;
+use axum_messages::MessagesManagerLayer;
 use secrecy::{ExposeSecret, Secret};
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use std::{net::SocketAddr, str::FromStr};
@@ -19,7 +20,7 @@ use tower_http::{
     trace::{DefaultOnRequest, DefaultOnResponse, TraceLayer},
     ServiceBuilderExt,
 };
-use tower_sessions::{Expiry, SessionManagerLayer};
+use tower_sessions::{cookie::Key, Expiry, SessionManagerLayer};
 use tower_sessions_redis_store::{
     fred::{
         clients::RedisPool,
@@ -136,6 +137,11 @@ async fn run(
         .merge(login::router())
         .merge(admin::router())
         .with_state(app_state)
+        .layer(AuthorizedSessionLayer::new(&[
+            "/admin/dashboard",
+            "/admin/password",
+        ]))
+        .layer(MessagesManagerLayer)
         .layer(
             SessionManagerLayer::new(RedisStore::new(redis_pool))
                 .with_expiry(Expiry::OnInactivity(Duration::minutes(10)))

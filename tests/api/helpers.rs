@@ -3,6 +3,7 @@ use claims::assert_some_eq;
 use linkify::{LinkFinder, LinkKind};
 use once_cell::sync::Lazy;
 use reqwest::{redirect, Response};
+use serde::Serialize;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::{net::SocketAddr, str::FromStr};
 use uuid::Uuid;
@@ -25,8 +26,6 @@ static TRACING: Lazy<()> = Lazy::new(|| {
     }
 });
 
-static FAILED_TO_EXECUTE_REQUEST: &str = "Failed to execute request";
-
 pub struct TestApp {
     pub address: SocketAddr,
     pub db_pool: PgPool,
@@ -36,6 +35,8 @@ pub struct TestApp {
 }
 
 impl TestApp {
+    const FAILED_TO_EXECUTE_REQUEST: &'static str = "Failed to execute request";
+
     pub async fn spawn() -> Self {
         Lazy::force(&TRACING);
 
@@ -75,7 +76,7 @@ impl TestApp {
             .get(self.url("/health_check"))
             .send()
             .await
-            .expect(FAILED_TO_EXECUTE_REQUEST)
+            .expect(Self::FAILED_TO_EXECUTE_REQUEST)
     }
 
     pub async fn confirm_subscription_without_token(&self) -> reqwest::Response {
@@ -83,7 +84,7 @@ impl TestApp {
             .get(self.url("/subscriptions/confirm"))
             .send()
             .await
-            .expect(FAILED_TO_EXECUTE_REQUEST)
+            .expect(Self::FAILED_TO_EXECUTE_REQUEST)
     }
 
     pub async fn confirm_subscription(&self, token: &str) -> reqwest::Response {
@@ -95,7 +96,7 @@ impl TestApp {
             ))
             .send()
             .await
-            .expect(FAILED_TO_EXECUTE_REQUEST)
+            .expect(Self::FAILED_TO_EXECUTE_REQUEST)
     }
 
     pub async fn post_subscriptions(&self, body: String) -> reqwest::Response {
@@ -105,7 +106,7 @@ impl TestApp {
             .body(body)
             .send()
             .await
-            .expect(FAILED_TO_EXECUTE_REQUEST)
+            .expect(Self::FAILED_TO_EXECUTE_REQUEST)
     }
 
     pub async fn post_newsletters_with_credentials(
@@ -120,7 +121,7 @@ impl TestApp {
             .json(body)
             .send()
             .await
-            .expect("Failed to execute request")
+            .expect(Self::FAILED_TO_EXECUTE_REQUEST)
     }
 
     pub async fn post_newsletters(&self, body: &serde_json::Value) -> reqwest::Response {
@@ -138,7 +139,7 @@ impl TestApp {
             .json(body)
             .send()
             .await
-            .expect("Failed to execute request")
+            .expect(Self::FAILED_TO_EXECUTE_REQUEST)
     }
 
     pub fn get_confirmation_links(&self, request: &wiremock::Request) -> ConfirmationLinks {
@@ -174,7 +175,7 @@ impl TestApp {
             .form(body)
             .send()
             .await
-            .expect("Failed to execute request")
+            .expect(Self::FAILED_TO_EXECUTE_REQUEST)
     }
 
     pub async fn get_login_html(&self) -> String {
@@ -182,7 +183,7 @@ impl TestApp {
             .get(self.url("/login"))
             .send()
             .await
-            .expect("Failed to execute request")
+            .expect(Self::FAILED_TO_EXECUTE_REQUEST)
             .text()
             .await
             .unwrap()
@@ -193,16 +194,53 @@ impl TestApp {
             .get(self.url("/admin/dashboard"))
             .send()
             .await
-            .expect("Failed to execute request")
+            .expect(Self::FAILED_TO_EXECUTE_REQUEST)
     }
 
     pub async fn get_admin_dashboard_html(&self) -> String {
         self.get_admin_dashboard().await.text().await.unwrap()
     }
 
+    pub async fn get_change_password_form(&self) -> Response {
+        self.client
+            .get(self.url("/admin/password"))
+            .send()
+            .await
+            .expect(Self::FAILED_TO_EXECUTE_REQUEST)
+    }
+
+    pub async fn get_change_password_html(&self) -> String {
+        self.get_change_password_form().await.text().await.unwrap()
+    }
+
+    pub async fn post_change_password<Body>(&self, body: &Body) -> Response
+    where
+        Body: Serialize,
+    {
+        self.client
+            .post(self.url("/admin/password"))
+            .form(body)
+            .send()
+            .await
+            .expect(Self::FAILED_TO_EXECUTE_REQUEST)
+    }
+
+    pub async fn post_logout(&self) -> Response {
+        self.client
+            .post(self.url("/admin/logout"))
+            .send()
+            .await
+            .expect(Self::FAILED_TO_EXECUTE_REQUEST)
+    }
+
     fn url(&self, endpoint: &str) -> String {
         format!("http://{}{endpoint}", self.address)
     }
+}
+
+pub fn assert_redirect_to(response: &Response, url: &str) {
+    assert_eq!(response.status(), 303);
+    assert_eq!(response.headers().get("Location").unwrap(), url);
 }
 
 async fn configure_database(configuration: &DatabaseSettings) -> PgPool {

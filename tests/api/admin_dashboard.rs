@@ -1,4 +1,4 @@
-use crate::helpers::TestApp;
+use crate::helpers::{assert_redirect_to, TestApp};
 
 #[tokio::test]
 async fn login_is_required_to_access_admin_dashboard() {
@@ -9,6 +9,5 @@ async fn login_is_required_to_access_admin_dashboard() {
     let response = app.get_admin_dashboard().await;
 
     // then
-    assert_eq!(response.status(), 303);
-    assert_eq!(response.headers().get("Location").unwrap(), "/login");
+    assert_redirect_to(&response, "/login");
 }

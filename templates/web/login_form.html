@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 
 {% block content %}
-{%- if let Some(flash) = flash %}
+{%- for flash in flashes %}
 <p><i>{{ flash }}</i></p>
-{%- endif %}
+{%- endfor %}
 
 <form action={{ action }} method="post">
     <label>

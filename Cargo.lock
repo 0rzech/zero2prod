@@ -252,26 +252,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "axum-extra"
-version = "0.9.3"
+name = "axum-messages"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0be6ea09c9b96cb5076af0de2e383bd2bc0c18f827cf1967bdd353e0b910d733"
+checksum = "c9cdcfb99b05dca5351c6999fbc7d4cdcf283fb703788b6a431a516ecdde51bb"
 dependencies = [
- "axum",
+ "async-trait",
  "axum-core",
- "bytes",
- "cookie 0.18.1",
- "futures-util",
  "http 1.1.0",
- "http-body 1.0.0",
- "http-body-util",
- "mime",
- "pin-project-lite",
+ "parking_lot",
  "serde",
+ "serde_json",
  "tower",
- "tower-layer",
- "tower-service",
- "tracing",
+ "tower-sessions-core",
 ]
 
 [[package]]
@@ -3497,7 +3490,7 @@ dependencies = [
  "askama",
  "askama_axum",
  "axum",
- "axum-extra",
+ "axum-messages",
  "base64 0.22.0",
  "claims",
  "config",

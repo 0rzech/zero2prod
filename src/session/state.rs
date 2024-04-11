@@ -12,11 +12,19 @@ pub struct TypedSession(Session);
 impl TypedSession {
     const USER_ID_KEY: &'static str = "user_id";
 
+    pub fn new(session: Session) -> Self {
+        Self(session)
+    }
+
     pub async fn cycle_id(&self) -> Result<(), Error> {
         self.0
             .cycle_id()
             .await
             .context("Failed to cycle session id")
+    }
+
+    pub async fn flush(&self) -> Result<(), Error> {
+        self.0.flush().await.context("Failed to flush session")
     }
 
     pub async fn insert_user_id(&self, user_id: Uuid) -> Result<(), Error> {
