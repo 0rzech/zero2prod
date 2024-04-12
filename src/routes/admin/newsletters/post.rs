@@ -4,15 +4,17 @@ use crate::{
     utils::{e500, HttpError},
 };
 use anyhow::Context;
-use axum::{extract::State, Form};
+use axum::{extract::State, response::Redirect, Form};
+use axum_messages::Messages;
 use serde::Deserialize;
 use sqlx::PgPool;
 
 #[tracing::instrument(skip(app_state, form))]
 pub(in crate::routes::admin) async fn publish_newsletter(
     State(app_state): State<AppState>,
+    messages: Messages,
     Form(form): Form<FormData>,
-) -> Result<(), HttpError<anyhow::Error>> {
+) -> Result<Redirect, HttpError<anyhow::Error>> {
     for subscriber in get_confirmed_subscribers(&app_state.db_pool)
         .await
         .map_err(e500)?
@@ -38,7 +40,9 @@ pub(in crate::routes::admin) async fn publish_newsletter(
         }
     }
 
-    Ok(())
+    messages.info("Newsletter sent!");
+
+    Ok(Redirect::to("/admin/newsletters"))
 }
 
 #[tracing::instrument(skip(db_pool))]
