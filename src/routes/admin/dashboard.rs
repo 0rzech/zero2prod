@@ -3,6 +3,7 @@ use crate::{
     authentication::extract::SessionUserId,
     utils::{e500, HttpError},
 };
+
 use anyhow::{Context, Error};
 use askama::Template;
 use axum::extract::State;
@@ -22,6 +23,7 @@ pub(super) async fn admin_dashboard(
         title: "Admin Dashboard",
         welcome: "Welcome",
         available_actions: "Available actions",
+        send_newsletter: "Send newsletter",
         change_password: "Change password",
         logout: "Logout",
         username,
@@ -51,6 +53,7 @@ pub struct Dashboard<'a> {
     title: &'a str,
     welcome: &'a str,
     available_actions: &'a str,
+    send_newsletter: &'a str,
     change_password: &'a str,
     logout: &'a str,
     username: String,

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block content %}
+{%- for flash in flashes %}
+<p><i>{{ flash }}</i></p>
+{%- endfor %}
+
+<form action="/admin/newsletters" method="post">
+    <label>
+        {{ newsletter_title_label }}<br>
+        <input type="text" placeholder="{{ newsletter_title_placeholder }}" name="newsletter_title" required>
+    </label>
+    <br>
+    <br>
+    <label>
+        {{ newsletter_html_label }}<br>
+        <textarea placeholder="{{ newsletter_html_placeholder }}" rows="20" cols="100" name="newsletter_html"
+            required></textarea>
+    </label>
+    <br>
+    <br>
+    <label>
+        {{ newsletter_text_label }}<br>
+        <textarea type="text" placeholder="{{ newsletter_text_placeholder }}" rows="20" cols="100"
+            name="newsletter_text" required></textarea>
+    </label>
+    <br>
+    <br>
+    <button type="submit">{{ send_newsletter_button }}</button>
+</form>
+<p><a href="/admin/dashboard">&lt;- {{ back_link }}</a></p>
+{% endblock %}

@@ -9,13 +9,12 @@ use wiremock::{
 async fn newsletters_are_delivered_to_confirmed_subscribers() {
     // given
     let app = TestApp::spawn().await;
-    let newsletter_request_body = json!({
-        "title": "Newsletter Title",
-        "content": {
-            "text": "Newsletter body as plain text.",
-            "html": "<p>Newsletter body as html.</p>",
-        }
-    });
+    let newsletter_request_body = "\
+        newsletter_title=Newsletter%20Title&\
+        newsletter_html=%3Cp%3ENewsletter%20body%20as%20html.%3C%2Fp%3E&\
+        newsletter_text=%3Cp%3ENewsletter%20body%20as%20html.%3C%2Fp%3E\
+    "
+    .to_string();
 
     create_confirmed_subscriber(&app).await;
     Mock::given(path("/email"))
@@ -34,7 +33,7 @@ async fn newsletters_are_delivered_to_confirmed_subscribers() {
     assert_redirect_to(&response, "/admin/dashboard");
 
     // when
-    let response = app.post_newsletters(&newsletter_request_body).await;
+    let response = app.post_newsletters(newsletter_request_body).await;
 
     // then
     assert_eq!(response.status(), 200);
@@ -44,13 +43,12 @@ async fn newsletters_are_delivered_to_confirmed_subscribers() {
 async fn newsletters_are_not_delivered_to_unconfirmed_subscribers() {
     // given
     let app = TestApp::spawn().await;
-    let newsletter_request_body = json!({
-        "title": "Newsletter Title",
-        "content": {
-            "text": "Newsletter body as plain text.",
-            "html": "<p>Newsletter body as html.</p>",
-        }
-    });
+    let newsletter_request_body = "\
+        newsletter_title=Newsletter%20Title&\
+        newsletter_html=%3Cp%3ENewsletter%20body%20as%20html.%3C%2Fp%3E&\
+        newsletter_text=%3Cp%3ENewsletter%20body%20as%20html.%3C%2Fp%3E\
+    "
+    .to_string();
 
     create_unfonfirmed_subscriber(&app).await;
     Mock::given(any())
@@ -68,7 +66,7 @@ async fn newsletters_are_not_delivered_to_unconfirmed_subscribers() {
     assert_redirect_to(&response, "/admin/dashboard");
 
     // when
-    let response = app.post_newsletters(&newsletter_request_body).await;
+    let response = app.post_newsletters(newsletter_request_body).await;
 
     // then
     assert_eq!(response.status(), 200);
@@ -80,19 +78,28 @@ async fn newsletters_returns_400_for_invalid_data() {
     let app = TestApp::spawn().await;
     let test_cases = vec![
         (
-            json!({
-                "content": {
-                    "text": "Newsletter body as plain text.",
-                    "html": "<p>Newsletter body as html.</p>",
-                }
-            }),
+            "\
+                newsletter_html=%3Cp%3ENewsletter%20body%20as%20html.%3C%2Fp%3E&\
+                newsletter_text=%3Cp%3ENewsletter%20body%20as%20html.%3C%2Fp%3E\
+            "
+            .to_string(),
             "missing title",
         ),
         (
-            json!({
-                "title": "Newsletter Title",
-            }),
-            "missing content",
+            "\
+                newsletter_title=Newsletter%20Title&\
+                newsletter_text=%3Cp%3ENewsletter%20body%20as%20html.%3C%2Fp%3E\
+            "
+            .to_string(),
+            "missing html content",
+        ),
+        (
+            "\
+                newsletter_title=Newsletter%20Title&\
+                newsletter_html=%3Cp%3ENewsletter%20body%20as%20html.%3C%2Fp%3E\
+            "
+            .to_string(),
+            "missing text content",
         ),
     ];
 
@@ -106,7 +113,7 @@ async fn newsletters_returns_400_for_invalid_data() {
 
     for (body, error_message) in test_cases {
         // when
-        let response = app.post_newsletters(&body).await;
+        let response = app.post_newsletters(body).await;
 
         // then
         assert_eq!(
@@ -122,16 +129,15 @@ async fn newsletters_returns_400_for_invalid_data() {
 async fn requests_from_anonymous_users_are_redirected_to_login() {
     // given
     let app = TestApp::spawn().await;
-    let newsletter_request_body = json!({
-        "title": "Newsletter Title",
-        "content": {
-            "text": "Newsletter body as plain text.",
-            "html": "<p>Newsletter body as html.</p>",
-        }
-    });
+    let newsletter_request_body = "\
+        newsletter_title=Newsletter%20Title&\
+        newsletter_html=%3Cp%3ENewsletter%20body%20as%20html.%3C%2Fp%3E&\
+        newsletter_text=%3Cp%3ENewsletter%20body%20as%20html.%3C%2Fp%3E\
+    "
+    .to_string();
 
     // when
-    let response = app.post_newsletters(&newsletter_request_body).await;
+    let response = app.post_newsletters(newsletter_request_body).await;
 
     // then
     assert_redirect_to(&response, "/login");
