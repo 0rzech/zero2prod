@@ -1,13 +1,13 @@
 use crate::app_state::AppState;
-use action::login;
 use axum::{
     routing::{get, post},
     Router,
 };
-use form::login_form;
+use get::login_form;
+use post::login;
 
-mod action;
-mod form;
+mod get;
+mod post;
 
 pub fn router() -> Router<AppState> {
     Router::new()

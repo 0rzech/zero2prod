@@ -1,5 +1,5 @@
-mod action;
-mod form;
+mod get;
+mod post;
 
-pub(super) use action::change_password;
-pub(super) use form::change_password_form;
+pub(super) use get::change_password_form;
+pub(super) use post::change_password;
