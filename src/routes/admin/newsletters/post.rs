@@ -4,14 +4,14 @@ use crate::{
     utils::{e500, HttpError},
 };
 use anyhow::Context;
-use axum::{extract::State, Json};
+use axum::{extract::State, Form};
 use serde::Deserialize;
 use sqlx::PgPool;
 
-#[tracing::instrument(name = "Publish newsletter", skip(app_state, body))]
+#[tracing::instrument(skip(app_state, form))]
 pub(in crate::routes::admin) async fn publish_newsletter(
     State(app_state): State<AppState>,
-    Json(body): Json<BodyData>,
+    Form(form): Form<FormData>,
 ) -> Result<(), HttpError<anyhow::Error>> {
     for subscriber in get_confirmed_subscribers(&app_state.db_pool)
         .await
@@ -22,9 +22,9 @@ pub(in crate::routes::admin) async fn publish_newsletter(
                 .email_client
                 .send_email(
                     &subscriber.email,
-                    &body.title,
-                    &body.content.html,
-                    &body.content.text,
+                    &form.newsletter_title,
+                    &form.newsletter_html,
+                    &form.newsletter_text,
                 )
                 .await
                 .with_context(|| {
@@ -41,7 +41,7 @@ pub(in crate::routes::admin) async fn publish_newsletter(
     Ok(())
 }
 
-#[tracing::instrument(name = "Get confirmed subscribers", skip(db_pool))]
+#[tracing::instrument(skip(db_pool))]
 async fn get_confirmed_subscribers(
     db_pool: &PgPool,
 ) -> Result<Vec<Result<ConfirmedSubscriber, anyhow::Error>>, anyhow::Error> {
@@ -68,15 +68,10 @@ async fn get_confirmed_subscribers(
 }
 
 #[derive(Deserialize)]
-pub(in crate::routes::admin) struct BodyData {
-    title: String,
-    content: Content,
-}
-
-#[derive(Deserialize)]
-struct Content {
-    html: String,
-    text: String,
+pub(in crate::routes::admin) struct FormData {
+    newsletter_title: String,
+    newsletter_html: String,
+    newsletter_text: String,
 }
 
 struct ConfirmedSubscriber {

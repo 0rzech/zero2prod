@@ -10,11 +10,9 @@ async fn newsletters_are_delivered_to_confirmed_subscribers() {
     // given
     let app = TestApp::spawn().await;
     let newsletter_request_body = json!({
-        "title": "Newsletter Title",
-        "content": {
-            "text": "Newsletter body as plain text.",
-            "html": "<p>Newsletter body as html.</p>",
-        }
+        "newsletter_title": "Newsletter Title",
+        "newsletter_html": "<p>Newsletter body as html.</p>",
+        "newsletter_text": "Newsletter body as text.",
     });
 
     create_confirmed_subscriber(&app).await;
@@ -34,7 +32,7 @@ async fn newsletters_are_delivered_to_confirmed_subscribers() {
     assert_redirect_to(&response, "/admin/dashboard");
 
     // when
-    let response = app.post_newsletters(&newsletter_request_body).await;
+    let response = app.post_publish_newsletter(&newsletter_request_body).await;
 
     // then
     assert_eq!(response.status(), 200);
@@ -45,11 +43,9 @@ async fn newsletters_are_not_delivered_to_unconfirmed_subscribers() {
     // given
     let app = TestApp::spawn().await;
     let newsletter_request_body = json!({
-        "title": "Newsletter Title",
-        "content": {
-            "text": "Newsletter body as plain text.",
-            "html": "<p>Newsletter body as html.</p>",
-        }
+        "newsletter_title": "Newsletter Title",
+        "newsletter_html": "<p>Newsletter body as html.</p>",
+        "newsletter_text": "Newsletter body as text.",
     });
 
     create_unfonfirmed_subscriber(&app).await;
@@ -68,7 +64,7 @@ async fn newsletters_are_not_delivered_to_unconfirmed_subscribers() {
     assert_redirect_to(&response, "/admin/dashboard");
 
     // when
-    let response = app.post_newsletters(&newsletter_request_body).await;
+    let response = app.post_publish_newsletter(&newsletter_request_body).await;
 
     // then
     assert_eq!(response.status(), 200);
@@ -81,18 +77,24 @@ async fn newsletters_returns_400_for_invalid_data() {
     let test_cases = vec![
         (
             json!({
-                "content": {
-                    "text": "Newsletter body as plain text.",
-                    "html": "<p>Newsletter body as html.</p>",
-                }
+                "newsletter_html": "<p>Newsletter body as html.</p>",
+                "newsletter_text": "Newsletter body as text.",
             }),
             "missing title",
         ),
         (
             json!({
-                "title": "Newsletter Title",
+                "newsletter_title": "Newsletter Title",
+                "newsletter_text": "Newsletter body as text.",
             }),
-            "missing content",
+            "missing html content",
+        ),
+        (
+            json!({
+                "newsletter_title": "Newsletter Title",
+                "newsletter_html": "<p>Newsletter body as html.</p>",
+            }),
+            "missing text content",
         ),
     ];
 
@@ -106,7 +108,7 @@ async fn newsletters_returns_400_for_invalid_data() {
 
     for (body, error_message) in test_cases {
         // when
-        let response = app.post_newsletters(&body).await;
+        let response = app.post_publish_newsletter(&body).await;
 
         // then
         assert_eq!(
@@ -123,15 +125,13 @@ async fn requests_from_anonymous_users_are_redirected_to_login() {
     // given
     let app = TestApp::spawn().await;
     let newsletter_request_body = json!({
-        "title": "Newsletter Title",
-        "content": {
-            "text": "Newsletter body as plain text.",
-            "html": "<p>Newsletter body as html.</p>",
-        }
+        "newsletter_title": "Newsletter Title",
+        "newsletter_html": "<p>Newsletter body as html.</p>",
+        "newsletter_text": "Newsletter body as text.",
     });
 
     // when
-    let response = app.post_newsletters(&newsletter_request_body).await;
+    let response = app.post_publish_newsletter(&newsletter_request_body).await;
 
     // then
     assert_redirect_to(&response, "/login");

@@ -2,7 +2,7 @@ use argon2::{password_hash::SaltString, Algorithm, Argon2, Params, PasswordHashe
 use claims::assert_some_eq;
 use linkify::{LinkFinder, LinkKind};
 use once_cell::sync::Lazy;
-use reqwest::{redirect, Response};
+use reqwest::{header::CONTENT_TYPE, redirect, Response};
 use serde::Serialize;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::{net::SocketAddr, str::FromStr};
@@ -102,7 +102,7 @@ impl TestApp {
     pub async fn post_subscriptions(&self, body: String) -> reqwest::Response {
         self.client
             .post(self.url("/subscriptions"))
-            .header("Content-Type", "application/x-www-form-urlencoded")
+            .header(CONTENT_TYPE, "application/x-www-form-urlencoded")
             .body(body)
             .send()
             .await
@@ -168,10 +168,14 @@ impl TestApp {
         self.get_admin_dashboard().await.text().await.unwrap()
     }
 
-    pub async fn post_newsletters(&self, body: &serde_json::Value) -> reqwest::Response {
+    pub async fn post_publish_newsletter<Body>(&self, body: &Body) -> reqwest::Response
+    where
+        Body: serde::Serialize,
+    {
         self.client
             .post(self.url("/admin/newsletters"))
-            .json(body)
+            .header(CONTENT_TYPE, "application/x-www-form-urlencoded")
+            .form(body)
             .send()
             .await
             .expect(Self::FAILED_TO_EXECUTE_REQUEST)

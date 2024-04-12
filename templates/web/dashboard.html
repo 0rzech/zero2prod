@@ -4,6 +4,7 @@
 <p>{{ welcome }}, {{ username }}!</p>
 <p>{{ available_actions }}:</p>
 <ol>
+    <li><a href="/admin/newsletters">{{ send_newsletter }}</li>
     <li><a href="/admin/password">{{ change_password }}</li>
     <li>
         <form name="logoutForm" action="/admin/logout" method="post">
