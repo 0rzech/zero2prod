@@ -3491,7 +3491,6 @@ dependencies = [
  "askama_axum",
  "axum",
  "axum-messages",
- "base64 0.22.0",
  "claims",
  "config",
  "fake",

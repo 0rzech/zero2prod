@@ -109,31 +109,7 @@ impl TestApp {
             .expect(Self::FAILED_TO_EXECUTE_REQUEST)
     }
 
-    pub async fn post_newsletters_with_credentials(
-        &self,
-        body: &serde_json::Value,
-        username: &str,
-        password: &str,
-    ) -> reqwest::Response {
-        self.client
-            .post(self.url("/newsletters"))
-            .basic_auth(username, Some(password))
-            .json(body)
-            .send()
-            .await
-            .expect(Self::FAILED_TO_EXECUTE_REQUEST)
-    }
-
     pub async fn post_newsletters(&self, body: &serde_json::Value) -> reqwest::Response {
-        self.post_newsletters_with_credentials(
-            body,
-            &self.test_user.username,
-            &self.test_user.password,
-        )
-        .await
-    }
-
-    pub async fn post_newsletters_no_auth(&self, body: &serde_json::Value) -> reqwest::Response {
         self.client
             .post(self.url("/newsletters"))
             .json(body)
