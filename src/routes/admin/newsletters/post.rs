@@ -1,22 +1,15 @@
 use crate::{
     app_state::AppState,
-    authentication::middleware::AuthorizedSessionLayer,
     domain::{SubscriberEmail, SubscriptionStatus},
     utils::{e500, HttpError},
 };
 use anyhow::Context;
-use axum::{extract::State, routing::post, Json, Router};
+use axum::{extract::State, Json};
 use serde::Deserialize;
 use sqlx::PgPool;
 
-pub fn router() -> Router<AppState> {
-    Router::new()
-        .route("/newsletters", post(publish_newsletter))
-        .layer(AuthorizedSessionLayer)
-}
-
 #[tracing::instrument(name = "Publish newsletter", skip(app_state, body))]
-async fn publish_newsletter(
+pub(in crate::routes::admin) async fn publish_newsletter(
     State(app_state): State<AppState>,
     Json(body): Json<BodyData>,
 ) -> Result<(), HttpError<anyhow::Error>> {
@@ -75,7 +68,7 @@ async fn get_confirmed_subscribers(
 }
 
 #[derive(Deserialize)]
-struct BodyData {
+pub(in crate::routes::admin) struct BodyData {
     title: String,
     content: Content,
 }

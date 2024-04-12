@@ -3,7 +3,7 @@ use crate::{
     configuration::{ApplicationSettings, DatabaseSettings, Settings},
     email_client::EmailClient,
     request_id::RequestUuid,
-    routes::{admin, health_check, home, login, newsletters, subscriptions, subscriptions_confirm},
+    routes::{admin, health_check, home, login, subscriptions, subscriptions_confirm},
     telemetry::request_span,
 };
 use anyhow::anyhow;
@@ -131,7 +131,6 @@ async fn run(
         .merge(health_check::router())
         .merge(subscriptions::router())
         .merge(subscriptions_confirm::router())
-        .merge(newsletters::router())
         .merge(home::router())
         .merge(login::router())
         .merge(admin::router())

@@ -109,15 +109,6 @@ impl TestApp {
             .expect(Self::FAILED_TO_EXECUTE_REQUEST)
     }
 
-    pub async fn post_newsletters(&self, body: &serde_json::Value) -> reqwest::Response {
-        self.client
-            .post(self.url("/newsletters"))
-            .json(body)
-            .send()
-            .await
-            .expect(Self::FAILED_TO_EXECUTE_REQUEST)
-    }
-
     pub fn get_confirmation_links(&self, request: &wiremock::Request) -> ConfirmationLinks {
         let body: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
 
@@ -175,6 +166,15 @@ impl TestApp {
 
     pub async fn get_admin_dashboard_html(&self) -> String {
         self.get_admin_dashboard().await.text().await.unwrap()
+    }
+
+    pub async fn post_newsletters(&self, body: &serde_json::Value) -> reqwest::Response {
+        self.client
+            .post(self.url("/admin/newsletters"))
+            .json(body)
+            .send()
+            .await
+            .expect(Self::FAILED_TO_EXECUTE_REQUEST)
     }
 
     pub async fn get_change_password_form(&self) -> Response {
