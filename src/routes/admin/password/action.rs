@@ -1,10 +1,12 @@
 use crate::{
     app_state::AppState,
     authentication::{
-        change_password as auth_change_password, validate_credentials, AuthError, Credentials,
+        extract::SessionUserId,
+        password::{
+            change_password as auth_change_password, validate_credentials, AuthError, Credentials,
+        },
     },
     routes::admin::dashboard::get_username,
-    session::extract::SessionUserId,
     utils::{e500, HttpError},
 };
 use axum::{extract::State, response::Redirect, Form};

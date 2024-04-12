@@ -1,4 +1,4 @@
-use crate::app_state::AppState;
+use crate::{app_state::AppState, authentication::middleware::AuthorizedSessionLayer};
 use axum::{
     routing::{get, post},
     Router,
@@ -13,8 +13,13 @@ mod password;
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route("/admin/dashboard", get(admin_dashboard))
-        .route("/admin/password", get(change_password_form))
-        .route("/admin/password", post(change_password))
-        .route("/admin/logout", post(log_out))
+        .nest(
+            "/admin",
+            Router::new()
+                .route("/dashboard", get(admin_dashboard))
+                .route("/password", get(change_password_form))
+                .route("/password", post(change_password))
+                .route("/logout", post(log_out)),
+        )
+        .layer(AuthorizedSessionLayer)
 }

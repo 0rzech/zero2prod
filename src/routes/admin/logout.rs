@@ -1,5 +1,5 @@
 use crate::{
-    session::state::TypedSession,
+    session_state::TypedSession,
     utils::{e500, HttpError},
 };
 use axum::response::Redirect;

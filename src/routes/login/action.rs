@@ -1,7 +1,7 @@
 use crate::{
     app_state::AppState,
-    authentication::{validate_credentials, AuthError, Credentials},
-    session::state::TypedSession,
+    authentication::password::{validate_credentials, AuthError, Credentials},
+    session_state::TypedSession,
 };
 use axum::{
     extract::State,

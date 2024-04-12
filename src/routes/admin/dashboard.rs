@@ -1,6 +1,6 @@
 use crate::{
     app_state::AppState,
-    session::extract::SessionUserId,
+    authentication::extract::SessionUserId,
     utils::{e500, HttpError},
 };
 use anyhow::{Context, Error};

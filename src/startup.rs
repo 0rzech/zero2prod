@@ -4,7 +4,6 @@ use crate::{
     email_client::EmailClient,
     request_id::RequestUuid,
     routes::{admin, health_check, home, login, newsletters, subscriptions, subscriptions_confirm},
-    session::middleware::AuthorizedSessionLayer,
     telemetry::request_span,
 };
 use anyhow::anyhow;
@@ -137,10 +136,6 @@ async fn run(
         .merge(login::router())
         .merge(admin::router())
         .with_state(app_state)
-        .layer(AuthorizedSessionLayer::new(&[
-            "/admin/dashboard",
-            "/admin/password",
-        ]))
         .layer(MessagesManagerLayer)
         .layer(
             SessionManagerLayer::new(RedisStore::new(redis_pool))

@@ -1,6 +1,6 @@
 use crate::{
     app_state::AppState,
-    authentication::{validate_credentials, AuthError, Credentials},
+    authentication::password::{validate_credentials, AuthError, Credentials},
     domain::{SubscriberEmail, SubscriptionStatus},
 };
 use anyhow::Context;

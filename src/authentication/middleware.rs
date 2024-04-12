@@ -1,4 +1,5 @@
-use crate::session::state::TypedSession;
+use super::extract::SessionUserId;
+use crate::session_state::TypedSession;
 use anyhow::anyhow;
 use axum::http::{header::LOCATION, HeaderValue, Request, Response, StatusCode};
 use std::{
@@ -10,32 +11,20 @@ use tower::{Layer, Service};
 use tower_sessions::Session;
 use tracing::Instrument;
 
-#[derive(Debug, Clone)]
-pub struct AuthorizedSessionLayer {
-    protected_paths: &'static [&'static str],
-}
-
-impl AuthorizedSessionLayer {
-    pub fn new(protected_paths: &'static [&'static str]) -> Self {
-        Self { protected_paths }
-    }
-}
+#[derive(Clone, Debug)]
+pub struct AuthorizedSessionLayer;
 
 impl<S> Layer<S> for AuthorizedSessionLayer {
     type Service = AuthorizedSession<S>;
 
     fn layer(&self, inner: S) -> Self::Service {
-        AuthorizedSession {
-            inner,
-            protected_paths: self.protected_paths,
-        }
+        AuthorizedSession { inner }
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub struct AuthorizedSession<S> {
     inner: S,
-    protected_paths: &'static [&'static str],
 }
 
 impl<S> AuthorizedSession<S> {
@@ -43,7 +32,7 @@ impl<S> AuthorizedSession<S> {
     where
         ResBody: Default,
     {
-        tracing::info!("User id not found in session");
+        tracing::info!("User is not logged in");
         let mut res = Response::default();
         *res.status_mut() = StatusCode::SEE_OTHER;
         res.headers_mut()
@@ -81,31 +70,28 @@ where
 
     fn call(&mut self, mut req: Request<ReqBody>) -> Self::Future {
         let span = tracing::info_span!("call");
-        let protected_paths = self.protected_paths;
         let clone = self.inner.clone();
         let mut inner = std::mem::replace(&mut self.inner, clone);
 
         Box::pin(
             async move {
-                if protected_paths.contains(&req.uri().path()) {
-                    let Some(session) = req
-                        .extensions()
-                        .get::<Session>()
-                        .cloned()
-                        .map(TypedSession::new)
-                    else {
-                        return Ok(Self::internal_server_error(anyhow!("Session not found")));
-                    };
+                let Some(session) = req
+                    .extensions()
+                    .get::<Session>()
+                    .cloned()
+                    .map(TypedSession::new)
+                else {
+                    return Ok(Self::internal_server_error(anyhow!("Session not found")));
+                };
 
-                    match session.get_user_id().await {
-                        Ok(Some(user_id)) => {
-                            tracing::info!("User id `{user_id}` found in session");
-                            req.extensions_mut().insert(user_id);
-                        }
-                        Ok(None) => return Ok(Self::see_other()),
-                        Err(e) => return Ok(Self::internal_server_error(e)),
-                    };
-                }
+                match session.get_user_id().await {
+                    Ok(Some(user_id)) => {
+                        tracing::info!("User id `{user_id}` found in session");
+                        req.extensions_mut().insert(SessionUserId(user_id));
+                    }
+                    Ok(None) => return Ok(Self::see_other()),
+                    Err(e) => return Ok(Self::internal_server_error(e)),
+                };
 
                 inner.call(req).await
             }

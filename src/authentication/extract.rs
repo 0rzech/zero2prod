@@ -5,6 +5,7 @@ use axum::{
 };
 use uuid::Uuid;
 
+#[derive(Clone, Debug)]
 pub struct SessionUserId(pub Uuid);
 
 #[async_trait]
@@ -12,17 +13,12 @@ impl<S> FromRequestParts<S> for SessionUserId
 where
     S: Send + Sync,
 {
-    type Rejection = (StatusCode, &'static str);
+    type Rejection = StatusCode;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        parts
-            .extensions
-            .get::<Uuid>()
-            .cloned()
-            .map(SessionUserId)
-            .ok_or((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "User id not present in session",
-            ))
+        parts.extensions.get::<SessionUserId>().cloned().ok_or({
+            tracing::error!("User id not found in session");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })
     }
 }
