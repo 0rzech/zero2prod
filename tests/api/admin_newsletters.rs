@@ -1,5 +1,6 @@
 use crate::helpers::{assert_redirect_to, ConfirmationLinks, TestApp};
 use serde_json::json;
+use uuid::Uuid;
 use wiremock::{
     matchers::{any, method, path},
     Mock, ResponseTemplate,
@@ -13,6 +14,7 @@ async fn newsletters_are_delivered_to_confirmed_subscribers() {
         "title": "Newsletter Title",
         "html_content": "<p>Newsletter body as html.</p>",
         "text_content": "Newsletter body as text.",
+        "idempotency_key": Uuid::new_v4(),
     });
 
     create_confirmed_subscriber(&app).await;
@@ -46,6 +48,7 @@ async fn newsletters_are_not_delivered_to_unconfirmed_subscribers() {
         "title": "Newsletter Title",
         "html_content": "<p>Newsletter body as html.</p>",
         "text_content": "Newsletter body as text.",
+        "idempotency_key": Uuid::new_v4(),
     });
 
     create_unconfirmed_subscriber(&app).await;
@@ -79,6 +82,7 @@ async fn newsletters_returns_400_for_invalid_data() {
             json!({
                 "html_content": "<p>Newsletter body as html.</p>",
                 "text_content": "Newsletter body as text.",
+                "idempotency_key": Uuid::new_v4(),
             }),
             "missing title",
         ),
@@ -86,6 +90,7 @@ async fn newsletters_returns_400_for_invalid_data() {
             json!({
                 "title": "Newsletter Title",
                 "text_content": "Newsletter body as text.",
+                "idempotency_key": Uuid::new_v4(),
             }),
             "missing html content",
         ),
@@ -93,8 +98,17 @@ async fn newsletters_returns_400_for_invalid_data() {
             json!({
                 "title": "Newsletter Title",
                 "html_content": "<p>Newsletter body as html.</p>",
+                "idempotency_key": Uuid::new_v4(),
             }),
             "missing text content",
+        ),
+        (
+            json!({
+                "title": "Newsletter Title",
+                "html_content": "<p>Newsletter body as html.</p>",
+                "text_content": "Newsletter body as text.",
+            }),
+            "missing idempotency key",
         ),
     ];
 
@@ -135,6 +149,43 @@ async fn requests_from_anonymous_users_are_redirected_to_login() {
 
     // then
     assert_redirect_to(&response, "/login");
+}
+
+#[tokio::test]
+async fn newsletter_creation_is_idempotent() {
+    // given
+    let app = TestApp::spawn().await;
+    let newsletter_request_body = json!({
+        "title": "Newsletter Title",
+        "html_content": "<p>Newsletter body as html.</p>",
+        "text_content": "Newsletter body as text.",
+        "idempotency_key": Uuid::new_v4(),
+    });
+
+    create_confirmed_subscriber(&app).await;
+    app.log_in(&app.test_user.username, &app.test_user.password)
+        .await;
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
+
+    let response = app.post_publish_newsletter(&newsletter_request_body).await;
+    assert_redirect_to(&response, "/admin/newsletters");
+
+    let html_page = app.get_newsletter_form_html().await;
+    assert!(html_page.contains("<p><i>Newsletter sent!</i></p>"));
+
+    // when
+    let response = app.post_publish_newsletter(&newsletter_request_body).await;
+
+    // then
+    assert_redirect_to(&response, "/admin/newsletters");
+    let html_page = app.get_newsletter_form_html().await;
+    assert!(html_page.contains("<p><i>Newsletter sent!</i></p>"));
 }
 
 async fn create_unconfirmed_subscriber(app: &TestApp) -> ConfirmationLinks {

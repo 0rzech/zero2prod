@@ -4,6 +4,7 @@ use linkify::{LinkFinder, LinkKind};
 use once_cell::sync::Lazy;
 use reqwest::{header::CONTENT_TYPE, redirect, Response};
 use serde::Serialize;
+use serde_json::json;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::{net::SocketAddr, str::FromStr};
 use uuid::Uuid;
@@ -181,6 +182,18 @@ impl TestApp {
             .expect(Self::FAILED_TO_EXECUTE_REQUEST)
     }
 
+    pub async fn get_newsletter_form(&self) -> Response {
+        self.client
+            .get(self.url("/admin/newsletters"))
+            .send()
+            .await
+            .expect(Self::FAILED_TO_EXECUTE_REQUEST)
+    }
+
+    pub async fn get_newsletter_form_html(&self) -> String {
+        self.get_newsletter_form().await.text().await.unwrap()
+    }
+
     pub async fn get_change_password_form(&self) -> Response {
         self.client
             .get(self.url("/admin/password"))
@@ -213,6 +226,17 @@ impl TestApp {
             .expect(Self::FAILED_TO_EXECUTE_REQUEST)
     }
 
+    pub async fn log_in(&self, username: &str, password: &str) -> Response {
+        self.client
+            .post(self.url("/login"))
+            .form(&json!({
+                "username": username,
+                "password": password,
+            }))
+            .send()
+            .await
+            .expect(Self::FAILED_TO_EXECUTE_REQUEST)
+    }
     fn url(&self, endpoint: &str) -> String {
         format!("http://{}{endpoint}", self.address)
     }

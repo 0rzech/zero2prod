@@ -1,20 +1,35 @@
 use crate::{
     app_state::AppState,
+    authentication::extract::SessionUserId,
     domain::{SubscriberEmail, SubscriptionStatus},
-    utils::{e500, HttpError},
+    idempotency::{get_saved_response, save_response, IdempotencyKey},
+    utils::{e422, e500, HttpError},
 };
 use anyhow::Context;
-use axum::{extract::State, response::Redirect, Form};
+use askama_axum::IntoResponse;
+use axum::{body::Body, extract::State, http::Response, response::Redirect, Form};
 use axum_messages::Messages;
 use serde::Deserialize;
 use sqlx::PgPool;
 
-#[tracing::instrument(skip(app_state, messages, form))]
+#[tracing::instrument(skip(app_state, user_id, messages, form))]
 pub(in crate::routes::admin) async fn publish_newsletter(
     State(app_state): State<AppState>,
+    SessionUserId(user_id): SessionUserId,
     messages: Messages,
     Form(form): Form<FormData>,
-) -> Result<Redirect, HttpError<anyhow::Error>> {
+) -> Result<Response<Body>, HttpError<anyhow::Error>> {
+    let flash_success = || messages.info("Newsletter sent!");
+    let idempotency_key: IdempotencyKey = form.idempotency_key.try_into().map_err(e422)?;
+
+    if let Some(saved_response) = get_saved_response(&app_state.db_pool, &idempotency_key, user_id)
+        .await
+        .map_err(e500)?
+    {
+        flash_success();
+        return Ok(saved_response);
+    }
+
     for subscriber in get_confirmed_subscribers(&app_state.db_pool)
         .await
         .map_err(e500)?
@@ -40,9 +55,12 @@ pub(in crate::routes::admin) async fn publish_newsletter(
         }
     }
 
-    messages.info("Newsletter sent!");
+    flash_success();
 
-    Ok(Redirect::to("/admin/newsletters"))
+    let response = Redirect::to("/admin/newsletters").into_response();
+    let response = save_response(&app_state.db_pool, &idempotency_key, user_id, response).await?;
+
+    Ok(response)
 }
 
 #[tracing::instrument(skip(db_pool))]
@@ -76,6 +94,7 @@ pub(in crate::routes::admin) struct FormData {
     title: String,
     html_content: String,
     text_content: String,
+    idempotency_key: String,
 }
 
 struct ConfirmedSubscriber {

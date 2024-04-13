@@ -1,5 +1,6 @@
 use askama_axum::Template;
 use axum_messages::Messages;
+use uuid::Uuid;
 
 #[tracing::instrument(name = "Get newsletter form", skip(messages))]
 pub(in crate::routes::admin) async fn newsletter_form(
@@ -17,6 +18,7 @@ pub(in crate::routes::admin) async fn newsletter_form(
         text_content_placeholder: "Enter newsletter text",
         send_newsletter_button: "Send newsletter",
         back_link: "Back",
+        idempotency_key: Uuid::new_v4().into(),
         flashes,
     }
 }
@@ -33,5 +35,6 @@ pub(in crate::routes::admin) struct NewsletterForm<'a> {
     text_content_placeholder: &'a str,
     send_newsletter_button: &'a str,
     back_link: &'a str,
+    idempotency_key: String,
     flashes: Vec<String>,
 }
