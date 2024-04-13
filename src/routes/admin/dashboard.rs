@@ -20,7 +20,7 @@ pub(super) async fn admin_dashboard(
         .map_err(e500)?;
 
     Ok(Dashboard {
-        title: "Admin Dashboard",
+        page_title: "Admin Dashboard",
         welcome: "Welcome",
         available_actions: "Available actions",
         send_newsletter: "Send newsletter",
@@ -50,7 +50,7 @@ pub async fn get_username(db_pool: &PgPool, user_id: Uuid) -> Result<String, Err
 #[derive(Template)]
 #[template(path = "web/dashboard.html")]
 pub struct Dashboard<'a> {
-    title: &'a str,
+    page_title: &'a str,
     welcome: &'a str,
     available_actions: &'a str,
     send_newsletter: &'a str,

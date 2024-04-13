@@ -1,28 +1,28 @@
 {% extends "base.html" %}
 
-{% block content %}
+{% block page_content %}
 {%- for flash in flashes %}
 <p><i>{{ flash }}</i></p>
 {%- endfor %}
 
 <form action="/admin/newsletters" method="post">
     <label>
-        {{ newsletter_title_label }}<br>
-        <input type="text" placeholder="{{ newsletter_title_placeholder }}" name="newsletter_title" required>
+        {{ title_label }}<br>
+        <input type="text" placeholder="{{ title_placeholder }}" name="title" required>
     </label>
     <br>
     <br>
     <label>
-        {{ newsletter_html_label }}<br>
-        <textarea placeholder="{{ newsletter_html_placeholder }}" rows="20" cols="100" name="newsletter_html"
+        {{ html_content_label }}<br>
+        <textarea placeholder="{{ html_content_placeholder }}" rows="20" cols="100" name="html_content"
             required></textarea>
     </label>
     <br>
     <br>
     <label>
-        {{ newsletter_text_label }}<br>
-        <textarea type="text" placeholder="{{ newsletter_text_placeholder }}" rows="20" cols="100"
-            name="newsletter_text" required></textarea>
+        {{ text_content_label }}<br>
+        <textarea type="text" placeholder="{{ text_content_placeholder }}" rows="20" cols="100"
+            name="text_content" required></textarea>
     </label>
     <br>
     <br>

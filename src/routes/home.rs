@@ -9,7 +9,7 @@ pub fn router() -> Router<AppState> {
 #[tracing::instrument(name = "Render home page")]
 async fn home() -> HomeTemplate<'static> {
     HomeTemplate {
-        title: "zero2prod",
+        page_title: "zero2prod",
         username: None,
     }
 }
@@ -17,6 +17,6 @@ async fn home() -> HomeTemplate<'static> {
 #[derive(Template)]
 #[template(path = "web/home.html")]
 struct HomeTemplate<'a> {
-    title: &'a str,
+    page_title: &'a str,
     username: Option<String>,
 }

@@ -24,9 +24,9 @@ pub(in crate::routes::admin) async fn publish_newsletter(
                 .email_client
                 .send_email(
                     &subscriber.email,
-                    &form.newsletter_title,
-                    &form.newsletter_html,
-                    &form.newsletter_text,
+                    &form.title,
+                    &form.html_content,
+                    &form.text_content,
                 )
                 .await
                 .with_context(|| {
@@ -73,9 +73,9 @@ async fn get_confirmed_subscribers(
 
 #[derive(Deserialize)]
 pub(in crate::routes::admin) struct FormData {
-    newsletter_title: String,
-    newsletter_html: String,
-    newsletter_text: String,
+    title: String,
+    html_content: String,
+    text_content: String,
 }
 
 struct ConfirmedSubscriber {

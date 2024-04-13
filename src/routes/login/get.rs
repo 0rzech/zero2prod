@@ -6,7 +6,7 @@ pub(super) async fn login_form(messages: Messages) -> LoginForm<'static> {
     let flashes = messages.map(|m| m.message).collect();
 
     LoginForm {
-        title: "Login",
+        page_title: "Login",
         username_label: "Username",
         username_placeholder: "Enter username",
         password_label: "Password",
@@ -20,7 +20,7 @@ pub(super) async fn login_form(messages: Messages) -> LoginForm<'static> {
 #[derive(Template)]
 #[template(path = "web/login_form.html")]
 pub(super) struct LoginForm<'a> {
-    title: &'a str,
+    page_title: &'a str,
     username_label: &'a str,
     username_placeholder: &'a str,
     password_label: &'a str,

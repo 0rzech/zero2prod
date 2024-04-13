@@ -7,7 +7,7 @@ pub(in crate::routes::admin) async fn change_password_form(
     let flashes = messages.map(|m| m.message).collect();
 
     ChangePasswordForm {
-        title: "Change Password",
+        page_title: "Change Password",
         current_password_label: "Current Password",
         current_password_placeholder: "Enter current password",
         new_password_label: "New Password",
@@ -23,7 +23,7 @@ pub(in crate::routes::admin) async fn change_password_form(
 #[derive(Template)]
 #[template(path = "web/change_password_form.html")]
 pub(in crate::routes::admin) struct ChangePasswordForm<'a> {
-    title: &'a str,
+    page_title: &'a str,
     current_password_label: &'a str,
     current_password_placeholder: &'a str,
     new_password_label: &'a str,
