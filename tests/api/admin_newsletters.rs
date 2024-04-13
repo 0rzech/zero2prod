@@ -48,7 +48,7 @@ async fn newsletters_are_not_delivered_to_unconfirmed_subscribers() {
         "text_content": "Newsletter body as text.",
     });
 
-    create_unfonfirmed_subscriber(&app).await;
+    create_unconfirmed_subscriber(&app).await;
     Mock::given(any())
         .respond_with(ResponseTemplate::new(200))
         .expect(0)
@@ -137,7 +137,7 @@ async fn requests_from_anonymous_users_are_redirected_to_login() {
     assert_redirect_to(&response, "/login");
 }
 
-async fn create_unfonfirmed_subscriber(app: &TestApp) -> ConfirmationLinks {
+async fn create_unconfirmed_subscriber(app: &TestApp) -> ConfirmationLinks {
     let body = "name=Imi%C4%99%20Nazwisko&email=imie.nazwisko%40example.com";
 
     let _mock_guard_ = Mock::given(path("/email"))
@@ -163,7 +163,7 @@ async fn create_unfonfirmed_subscriber(app: &TestApp) -> ConfirmationLinks {
 }
 
 async fn create_confirmed_subscriber(app: &TestApp) {
-    let links = create_unfonfirmed_subscriber(app).await;
+    let links = create_unconfirmed_subscriber(app).await;
     reqwest::get(links.html)
         .await
         .unwrap()
