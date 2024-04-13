@@ -9,7 +9,7 @@ use axum_messages::Messages;
 use serde::Deserialize;
 use sqlx::PgPool;
 
-#[tracing::instrument(skip(app_state, form))]
+#[tracing::instrument(skip(app_state, messages, form))]
 pub(in crate::routes::admin) async fn publish_newsletter(
     State(app_state): State<AppState>,
     messages: Messages,

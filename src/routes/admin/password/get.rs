@@ -1,6 +1,7 @@
 use askama_axum::Template;
 use axum_messages::Messages;
 
+#[tracing::instrument(name = "Get change password form", skip(messages))]
 pub(in crate::routes::admin) async fn change_password_form(
     messages: Messages,
 ) -> ChangePasswordForm<'static> {

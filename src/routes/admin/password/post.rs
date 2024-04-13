@@ -14,7 +14,7 @@ use axum_messages::Messages;
 use secrecy::{ExposeSecret, Secret};
 use serde::Deserialize;
 
-#[tracing::instrument(skip(app_state, user_id, form))]
+#[tracing::instrument(skip(app_state, user_id, messages, form))]
 pub(in crate::routes::admin) async fn change_password(
     State(app_state): State<AppState>,
     SessionUserId(user_id): SessionUserId,

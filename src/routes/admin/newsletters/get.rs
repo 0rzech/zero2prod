@@ -1,6 +1,7 @@
 use askama_axum::Template;
 use axum_messages::Messages;
 
+#[tracing::instrument(name = "Get newsletter form", skip(messages))]
 pub(in crate::routes::admin) async fn newsletter_form(
     messages: Messages,
 ) -> NewsletterForm<'static> {

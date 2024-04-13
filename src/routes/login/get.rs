@@ -1,7 +1,7 @@
 use askama_axum::Template;
 use axum_messages::Messages;
 
-#[tracing::instrument(skip(messages))]
+#[tracing::instrument(name = "Get login form", skip(messages))]
 pub(super) async fn login_form(messages: Messages) -> LoginForm<'static> {
     let flashes = messages.map(|m| m.message).collect();
 
