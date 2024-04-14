@@ -2,7 +2,7 @@ use crate::{
     app_state::AppState,
     authentication::extract::SessionUserId,
     domain::{SubscriberEmail, SubscriptionStatus},
-    idempotency::{get_saved_response, save_response, IdempotencyKey},
+    idempotency::{save_response, try_processing, IdempotencyKey, NextAction},
     utils::{e422, e500, HttpError},
 };
 use anyhow::Context;
@@ -22,13 +22,16 @@ pub(in crate::routes::admin) async fn publish_newsletter(
     let flash_success = || messages.info("Newsletter sent!");
     let idempotency_key: IdempotencyKey = form.idempotency_key.try_into().map_err(e422)?;
 
-    if let Some(saved_response) = get_saved_response(&app_state.db_pool, &idempotency_key, user_id)
+    let transaction = match try_processing(&app_state.db_pool, &idempotency_key, user_id)
         .await
         .map_err(e500)?
     {
-        flash_success();
-        return Ok(saved_response);
-    }
+        NextAction::StartProcessing(transaction) => transaction,
+        NextAction::ReturnSavedResponse(saved_response) => {
+            flash_success();
+            return Ok(saved_response);
+        }
+    };
 
     for subscriber in get_confirmed_subscribers(&app_state.db_pool)
         .await
@@ -58,7 +61,7 @@ pub(in crate::routes::admin) async fn publish_newsletter(
     flash_success();
 
     let response = Redirect::to("/admin/newsletters").into_response();
-    let response = save_response(&app_state.db_pool, &idempotency_key, user_id, response).await?;
+    let response = save_response(transaction, &idempotency_key, user_id, response).await?;
 
     Ok(response)
 }

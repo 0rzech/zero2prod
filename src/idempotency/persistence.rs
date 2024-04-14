@@ -1,10 +1,47 @@
 use super::IdempotencyKey;
+use anyhow::anyhow;
 use axum::{
     body::{to_bytes, Body},
     http::{Response, StatusCode},
 };
-use sqlx::{postgres::PgHasArrayType, PgPool};
+use sqlx::{postgres::PgHasArrayType, Executor, PgPool, Postgres, Transaction};
 use uuid::Uuid;
+
+pub enum NextAction {
+    StartProcessing(Transaction<'static, Postgres>),
+    ReturnSavedResponse(Response<Body>),
+}
+
+#[tracing::instrument(skip(db_pool, idempotency_key, user_id))]
+pub async fn try_processing(
+    db_pool: &PgPool,
+    idempotency_key: &IdempotencyKey,
+    user_id: Uuid,
+) -> Result<NextAction, anyhow::Error> {
+    let mut transaction = db_pool.begin().await?;
+    let query = sqlx::query!(
+        r#"
+        INSERT INTO idempotency (
+            user_id,
+            idempotency_key,
+            created_at
+        )
+        VALUES ($1, $2, now())
+        ON CONFLICT DO NOTHING
+        "#,
+        user_id,
+        idempotency_key.as_ref()
+    );
+
+    if transaction.execute(query).await?.rows_affected() > 0 {
+        Ok(NextAction::StartProcessing(transaction))
+    } else {
+        let response = get_saved_response(db_pool, idempotency_key, user_id)
+            .await?
+            .ok_or_else(|| anyhow!("Expected saved response was not found"))?;
+        Ok(NextAction::ReturnSavedResponse(response))
+    }
+}
 
 #[tracing::instrument(skip(db_pool, idempotency_key, user_id))]
 pub async fn get_saved_response(
@@ -15,9 +52,9 @@ pub async fn get_saved_response(
     let saved_response = sqlx::query!(
         r#"
         SELECT
-            response_status_code,
-            response_headers AS "response_headers: Vec<HeaderPairRecord>",
-            response_body
+            response_status_code AS "response_status_code!",
+            response_headers AS "response_headers!: Vec<HeaderPairRecord>",
+            response_body AS "response_body!"
         FROM idempotency
         WHERE
             idempotency_key = $1 AND
@@ -41,9 +78,9 @@ pub async fn get_saved_response(
     }
 }
 
-#[tracing::instrument(skip(db_pool, idempotency_key, user_id, response))]
+#[tracing::instrument(skip(transaction, idempotency_key, user_id, response))]
 pub async fn save_response(
-    db_pool: &PgPool,
+    mut transaction: Transaction<'static, Postgres>,
     idempotency_key: &IdempotencyKey,
     user_id: Uuid,
     response: Response<Body>,
@@ -61,26 +98,26 @@ pub async fn save_response(
     let (parts, body) = response.into_parts();
     let body = to_bytes(body, usize::MAX).await?;
 
-    sqlx::query_unchecked!(
-        r#"
-        INSERT INTO idempotency (
+    transaction
+        .execute(sqlx::query_unchecked!(
+            r#"
+            UPDATE idempotency
+            SET
+                response_status_code = $3,
+                response_headers = $4,
+                response_body = $5
+            WHERE
+                user_id = $1 AND
+                idempotency_key = $2
+            "#,
             user_id,
-            idempotency_key,
-            response_status_code,
-            response_headers,
-            response_body,
-            created_at
-        )
-        VALUES ($1, $2, $3, $4, $5, now())
-        "#,
-        user_id,
-        idempotency_key.as_ref(),
-        status_code,
-        headers,
-        body.as_ref()
-    )
-    .execute(db_pool)
-    .await?;
+            idempotency_key.as_ref(),
+            status_code,
+            headers,
+            body.as_ref()
+        ))
+        .await?;
+    transaction.commit().await?;
 
     let response = Response::from_parts(parts, Body::from(body));
     Ok(response)

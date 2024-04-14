@@ -1,5 +1,6 @@
 use crate::helpers::{assert_redirect_to, ConfirmationLinks, TestApp};
 use serde_json::json;
+use std::time::Duration;
 use uuid::Uuid;
 use wiremock::{
     matchers::{any, method, path},
@@ -186,6 +187,42 @@ async fn newsletter_creation_is_idempotent() {
     assert_redirect_to(&response, "/admin/newsletters");
     let html_page = app.get_newsletter_form_html().await;
     assert!(html_page.contains("<p><i>Newsletter sent!</i></p>"));
+}
+
+#[tokio::test]
+async fn concurrent_form_submission_is_handled_gracefully() {
+    // given
+    let app = TestApp::spawn().await;
+    let newsletter_request_body = json!({
+        "title": "Newsletter Title",
+        "html_content": "<p>Newsletter body as html.</p>",
+        "text_content": "Newsletter body as text.",
+        "idempotency_key": Uuid::new_v4(),
+    });
+
+    create_confirmed_subscriber(&app).await;
+    app.log_in(&app.test_user.username, &app.test_user.password)
+        .await;
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200).set_delay(Duration::from_secs(2)))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
+
+    // when
+    let response1 = app.post_publish_newsletter(&newsletter_request_body);
+    let response2 = app.post_publish_newsletter(&newsletter_request_body);
+    let (response1, response2) = tokio::join!(response1, response2);
+
+    // then
+    assert_redirect_to(&response1, "/admin/newsletters");
+    assert_eq!(response1.status(), response2.status());
+    assert_eq!(
+        response1.text().await.unwrap(),
+        response2.text().await.unwrap()
+    );
 }
 
 async fn create_unconfirmed_subscriber(app: &TestApp) -> ConfirmationLinks {
