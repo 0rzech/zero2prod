@@ -1,10 +1,14 @@
 use crate::helpers::{assert_redirect_to, ConfirmationLinks, TestApp};
+use fake::{
+    faker::{internet::en::SafeEmail, name::en::Name},
+    Fake,
+};
 use serde_json::json;
 use std::time::Duration;
 use uuid::Uuid;
 use wiremock::{
     matchers::{any, method, path},
-    Mock, ResponseTemplate,
+    Mock, MockBuilder, ResponseTemplate,
 };
 
 #[tokio::test]
@@ -19,8 +23,7 @@ async fn newsletters_are_delivered_to_confirmed_subscribers() {
     });
 
     create_confirmed_subscriber(&app).await;
-    Mock::given(path("/email"))
-        .and(method("POST"))
+    when_sending_an_email()
         .respond_with(ResponseTemplate::new(200))
         .expect(1)
         .mount(&app.email_server)
@@ -39,6 +42,8 @@ async fn newsletters_are_delivered_to_confirmed_subscribers() {
 
     // then
     assert_redirect_to(&response, "/admin/newsletters");
+
+    app.dispatch_all_pending_emails().await;
 }
 
 #[tokio::test]
@@ -167,8 +172,7 @@ async fn newsletter_creation_is_idempotent() {
     app.log_in(&app.test_user.username, &app.test_user.password)
         .await;
 
-    Mock::given(path("/email"))
-        .and(method("POST"))
+    when_sending_an_email()
         .respond_with(ResponseTemplate::new(200))
         .expect(1)
         .mount(&app.email_server)
@@ -178,7 +182,11 @@ async fn newsletter_creation_is_idempotent() {
     assert_redirect_to(&response, "/admin/newsletters");
 
     let html_page = app.get_newsletter_form_html().await;
-    assert!(html_page.contains("<p><i>Newsletter sent!</i></p>"));
+    assert!(html_page.contains(
+        "<p><i>The newsletter issue has been accepted \
+        - emails will go out shortly.</i></p>"
+    ));
+    app.dispatch_all_pending_emails().await;
 
     // when
     let response = app.post_publish_newsletter(&newsletter_request_body).await;
@@ -186,7 +194,10 @@ async fn newsletter_creation_is_idempotent() {
     // then
     assert_redirect_to(&response, "/admin/newsletters");
     let html_page = app.get_newsletter_form_html().await;
-    assert!(html_page.contains("<p><i>Newsletter sent!</i></p>"));
+    assert!(html_page.contains(
+        "<p><i>The newsletter issue has been accepted \
+        - emails will go out shortly.</i></p>"
+    ));
 }
 
 #[tokio::test]
@@ -203,8 +214,7 @@ async fn concurrent_form_submission_is_handled_gracefully() {
     create_confirmed_subscriber(&app).await;
     app.log_in(&app.test_user.username, &app.test_user.password)
         .await;
-
-    Mock::given(path("/email"))
+    when_sending_an_email()
         .and(method("POST"))
         .respond_with(ResponseTemplate::new(200).set_delay(Duration::from_secs(2)))
         .expect(1)
@@ -223,19 +233,26 @@ async fn concurrent_form_submission_is_handled_gracefully() {
         response1.text().await.unwrap(),
         response2.text().await.unwrap()
     );
+
+    app.dispatch_all_pending_emails().await;
 }
 
 async fn create_unconfirmed_subscriber(app: &TestApp) -> ConfirmationLinks {
-    let body = "name=Imi%C4%99%20Nazwisko&email=imie.nazwisko%40example.com";
+    let name: String = Name().fake();
+    let email: String = SafeEmail().fake();
+    let body = serde_urlencoded::to_string(json!({
+        "name": name,
+        "email": email,
+    }))
+    .unwrap();
 
-    let _mock_guard_ = Mock::given(path("/email"))
-        .and(method("POST"))
+    let _mock_guard_ = when_sending_an_email()
         .respond_with(ResponseTemplate::new(200))
         .expect(1)
         .mount_as_scoped(&app.email_server)
         .await;
 
-    app.post_subscriptions(body.into())
+    app.post_subscriptions(body)
         .await
         .error_for_status()
         .unwrap();
@@ -257,4 +274,8 @@ async fn create_confirmed_subscriber(app: &TestApp) {
         .unwrap()
         .error_for_status()
         .unwrap();
+}
+
+fn when_sending_an_email() -> MockBuilder {
+    Mock::given(path("/email")).and(method("POST"))
 }

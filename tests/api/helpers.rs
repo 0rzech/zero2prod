@@ -11,6 +11,8 @@ use uuid::Uuid;
 use wiremock::MockServer;
 use zero2prod::{
     configuration::{get_configuration, DatabaseSettings},
+    email_client::EmailClient,
+    issue_delivery_worker::{try_execute_task, ExecutionOutcome},
     startup::{get_pg_connection_pool, Application},
     telemetry::{get_subscriber, init_subscriber},
 };
@@ -31,6 +33,7 @@ pub struct TestApp {
     pub address: SocketAddr,
     pub db_pool: PgPool,
     pub email_server: MockServer,
+    pub email_client: EmailClient,
     pub test_user: TestUser,
     client: reqwest::Client,
 }
@@ -48,6 +51,7 @@ impl TestApp {
         let db_pool = configure_database(&config.database).await;
         let email_server = MockServer::start().await;
         config.email_client.base_url = email_server.uri();
+        let email_client = config.email_client.client();
 
         let app = Application::build(config).await;
         let address = app.local_addr();
@@ -67,8 +71,21 @@ impl TestApp {
             address,
             db_pool,
             email_server,
+            email_client,
             test_user,
             client,
+        }
+    }
+
+    pub async fn dispatch_all_pending_emails(&self) {
+        loop {
+            if let ExecutionOutcome::EmptyQueue =
+                try_execute_task(&self.db_pool, &self.email_client)
+                    .await
+                    .unwrap()
+            {
+                break;
+            }
         }
     }
 
@@ -237,6 +254,7 @@ impl TestApp {
             .await
             .expect(Self::FAILED_TO_EXECUTE_REQUEST)
     }
+
     fn url(&self, endpoint: &str) -> String {
         format!("http://{}{endpoint}", self.address)
     }

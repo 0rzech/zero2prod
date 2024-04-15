@@ -1,4 +1,4 @@
-use crate::domain::SubscriberEmail;
+use crate::{domain::SubscriberEmail, email_client::EmailClient};
 use secrecy::{ExposeSecret, Secret};
 use serde::Deserialize;
 use serde_aux::field_attributes::deserialize_number_from_string;
@@ -9,14 +9,14 @@ use sqlx::{
 use std::time::Duration;
 use tracing_log::log::LevelFilter;
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct Settings {
     pub application: ApplicationSettings,
     pub database: DatabaseSettings,
     pub email_client: EmailClientSettings,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct ApplicationSettings {
     pub host: String,
     #[serde(deserialize_with = "deserialize_number_from_string")]
@@ -26,7 +26,7 @@ pub struct ApplicationSettings {
     pub redis_uri: Secret<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct DatabaseSettings {
     pub host: String,
     #[serde(deserialize_with = "deserialize_number_from_string")]
@@ -60,7 +60,7 @@ impl DatabaseSettings {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct EmailClientSettings {
     pub base_url: String,
     sender_email: String,
@@ -69,6 +69,15 @@ pub struct EmailClientSettings {
 }
 
 impl EmailClientSettings {
+    pub fn client(&self) -> EmailClient {
+        EmailClient::new(
+            self.base_url.clone(),
+            self.sender().expect("Invalid sender email address"),
+            self.authorization_token.clone(),
+            self.timeout(),
+        )
+    }
+
     pub fn sender(&self) -> Result<SubscriberEmail, String> {
         SubscriberEmail::parse(self.sender_email.clone())
     }
